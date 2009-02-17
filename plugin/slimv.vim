@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
-" Version:      0.1.2
-" Last Change:  13 Feb 2009
+" Version:      0.1.3
+" Last Change:  17 Feb 2009
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -208,6 +208,7 @@ function! SlimvLogGlobals()
     call add( info,  printf( 'g:slimv_splitwindow   = %d',    g:slimv_splitwindow ) )
     call add( info,  printf( 'g:slimv_keybindings   = %d',    g:slimv_keybindings ) )
     call add( info,  printf( 'g:slimv_menu          = %d',    g:slimv_menu ) )
+    call SlimvLog( 1, info )
 endfunction
 
 au BufNewFile,BufRead *.lisp call SlimvLogGlobals()
@@ -552,7 +553,9 @@ function! SlimvEval( args )
             execute '!' . client . ' -f ' . tmp
         endif
 
-        sleep 1
+        if g:slimv_bufopen
+            sleep 1
+        endif
     finally
         call delete(tmp)
     endtry
@@ -649,8 +652,6 @@ function! SlimvHandleDown()
             call SlimvRecallHistory()
         else
             call SlimvSetCommandLine( "" )
-        endif
-    endif
 endfunction
 
 " Start and connect slimv server
