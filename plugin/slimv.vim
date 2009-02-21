@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
-" Version:      0.1.3
-" Last Change:  17 Feb 2009
+" Version:      0.1.4
+" Last Change:  21 Feb 2009
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -516,8 +516,6 @@ function! SlimvEval( args )
     call SlimvClientCommand()
     if g:slimv_client == ''
         return
-    endif
-
     let client = substitute( g:slimv_client, '@o', '-o ' . g:slimv_repl_name, 'g' )
 
     if g:slimv_repl_open

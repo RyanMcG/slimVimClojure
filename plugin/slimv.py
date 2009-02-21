@@ -4,8 +4,8 @@
 #
 # Client/Server code for Slimv
 # slimv.py:     Client/Server code for slimv.vim plugin
-# Version:      0.1.3
-# Last Change:  17 Feb 2009
+# Version:      0.1.4
+# Last Change:  21 Feb 2009
 # Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 # License:      This file is placed in the public domain.
 #               No warranty, express or implied.
