@@ -16,6 +16,13 @@ let b:undo_indent = "setlocal ai< si< lw< et< sts< sw< inde< indk<"
 
 setlocal noautoindent expandtab nosmartindent
 
+" sjl: For some reason Vimclojure's indentation forces the 'N lines to indent...'
+"      message to display, even though it usually doesn't.  This results in a 'Press
+"      ENTER...' prompt unless your cmdheight is >1, which mine isn't.  So for
+"      Clojure files we'll just (effectively) disable the reporting of lines changed
+"      altogether as a hacky workaround.
+setlocal report=10000
+
 setlocal softtabstop=2
 setlocal shiftwidth=2
 
@@ -34,7 +41,7 @@ endfunction
 function! s:CheckForString()
         let closure = {}
 
-        function closure.f() dict
+        function! closure.f() dict
                 " Check whether there is the last character of the previous line is
                 " highlighted as a string. If so, we check whether it's a ". In this
                 " case we have to check also the previous character. The " might be the
@@ -99,11 +106,10 @@ function! s:IsMethodSpecialCase(position)
 
                 call vimclojure#util#MoveForward()
                 let keyword = vimclojure#util#Yank('l', 'normal! "lye')
-                for kw in [ 'deftype', 'defrecord', 'reify', 'proxy', 'letfn' ]
-                        if kw == keyword
-                                return 1
-                        endif
-                endfor
+                if index([ 'deftype', 'defrecord', 'reify', 'proxy', 'letfn' ], keyword) >= 0
+                        return 1
+                endif
+
                 return 0
         endfunction
 
