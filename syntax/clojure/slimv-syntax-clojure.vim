@@ -263,3 +263,4 @@ endif
 delcommand HiLink
 
 let b:current_syntax = "clojure"
+
