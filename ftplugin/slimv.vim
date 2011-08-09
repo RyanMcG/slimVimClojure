@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
-" Version:      0.8.5
-" Last Change:  02 Aug 2011
+" Version:      0.8.6
+" Last Change:  09 Aug 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -156,9 +156,11 @@ function! SlimvSwankCommand()
 
     let cmd = ''
     if SlimvGetFiletype() == 'clojure'
-        " First autodetect 'lein swank'
+        " First autodetect Leiningen and Cake
         if executable( 'lein' )
             let cmd = '"lein swank"'
+        elseif executable( 'cake' )
+            let cmd = '"cake swank"'
         else
             " Check if swank-clojure is bundled with Slimv
             let swanks = split( globpath( &runtimepath, 'swank-clojure/swank/swank.clj'), '\n' )
@@ -223,6 +225,11 @@ endfunction
 " Use SWANK server
 if !exists( 'g:slimv_swank' )
     let g:slimv_swank = 1
+endif
+
+" Host name or IP address of the SWANK server
+if !exists( 'g:swank_host' )
+    let g:swank_host = 'localhost'
 endif
 
 " TCP port number to use for the SWANK server
@@ -1040,7 +1047,12 @@ function! SlimvFindAddSel( string )
     if found
         if g:slimv_swank
             silent normal! ww
-            let s:swank_package = expand('<cword>')
+            let l:packagename_tokens = split(expand('<cWORD>'),')\|\s')
+            if l:packagename_tokens != []
+                let s:swank_package = l:packagename_tokens[0]
+            else
+                let s:swank_package = ''
+            endif
         else
             " Put the form just found at the beginning of the selection
             let sel = SlimvGetSelection()
@@ -1059,7 +1071,7 @@ function! SlimvFindPackage()
     if SlimvGetFiletype() == 'clojure'
         call SlimvFindAddSel( 'in-ns' )
     else
-        call SlimvFindAddSel( 'in-package' )
+        call SlimvFindAddSel( '\(cl:\|common-lisp:\|\)in-package' )
     endif
 endfunction
 
@@ -1104,8 +1116,11 @@ function! SlimvConnectSwank()
     if !s:swank_connected
         let s:swank_version = ''
         let s:lisp_version = ''
-        python swank_connect( "g:swank_port", "result" )
-        if result != ''
+        if g:swank_host == ''
+            let g:swank_host = input( 'Swank server host name: ', 'localhost' )
+        endif
+        execute 'python swank_connect("' . g:swank_host . '", ' . g:swank_port . ', "result" )'
+        if result != '' && ( g:swank_host == 'localhost' || g:swank_host == '127.0.0.1' )
             " SWANK server is not running, start server if possible
             let swank = SlimvSwankCommand()
             if swank != ''
@@ -1115,7 +1130,7 @@ function! SlimvConnectSwank()
                 let starttime = localtime()
                 while result != '' && localtime()-starttime < g:slimv_timeout
                     sleep 500m
-                    python swank_connect( "g:swank_port", "result" )
+                    execute 'python swank_connect("' . g:swank_host . '", ' . g:swank_port . ', "result" )'
                 endwhile
                 redraw!
             endif

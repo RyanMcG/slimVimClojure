@@ -1,7 +1,7 @@
-*slimv.txt*                    Slimv                 Last Change: 19 Jul 2011
+*slimv.txt*                    Slimv                 Last Change: 08 Aug 2011
 
 Slimv                                                                  *slimv*
-                               Version 0.8.5
+                               Version 0.8.6
 
 The Superior Lisp Interaction Mode for Vim.
 This plugin is aimed to help Lisp development by interfacing between Vim and
@@ -1129,6 +1129,11 @@ FAQ                                                                 *slimv-faq*
 ===============================================================================
 CHANGE LOG                                                    *slimv-changelog*
 
+0.8.6  - Handle cl:in-package, common-lisp:in-package (thanks to Philipp Marek).
+       - Added option g:swank_host to allow connecting to remote Swank server.
+       - Autodetection of Cake for Clojure (thanks to Chris Cahoon).
+       - Set Paredit mode also for .cl and .rkt files.
+
 0.8.5  - Switch on indent plugins.
        - Do not complete empty string on <Tab>.
        - Added Clojure keywords to syntax plugin.
@@ -1460,7 +1465,12 @@ ideas, suggestions on the SWANK integration.
 Also thanks to Vlad Hanciuta, Marcin Fatyga, Dmitry Petukhov,
 Daniel Solano Gómez, Brian Kropf, Len Weincier, Andreas Salwasser,
 Jon Thacker, Andrew Hills, Jerome Baum, John Obbele, Andreas Fredriksson,
-Ömer Sinan Agacan, Tobias Pflug for additional notes and contributions.
+Ömer Sinan Agacan, Tobias Pflug, Chris Cahoon for additional notes and
+contributions.
+
+I would also like to say a big thank you to everyone donating to support
+development. This is a one-element list at the moment: :)
+thanks to Paul Michael Bauer.
 
 Last but not least many thanks to my wife Andrea (for the Italians out there:
 hey, this is a female name in Hungary :) for her support and patience.
