@@ -3,27 +3,78 @@
 [Swank Clojure](http://github.com/technomancy/swank-clojure) is a
 server that allows [SLIME](http://common-lisp.net/project/slime/) (the
 Superior Lisp Interaction Mode for Emacs) to connect to Clojure
-projects. To use it you must launch a swank server, then connect to it
-from within Emacs.
+projects.
 
 ## Usage
 
-If you just want a standalone swank server with no third-party
-libraries, you can just install swank-clojure using Leiningen.
+The simplest way is to just <tt>jack-in</tt> from an existing project
+using [Leiningen](http://github.com/technomancy/leiningen):
 
-    $ lein plugin install swank-clojure 1.3.0-SNAPSHOT
+* Install clojure-mode either from
+  [Marmalade](http://marmalade-repo.org) or from
+  [git](http://github.com/technomancy/clojure-mode).
+* <tt>lein plugin install swank-clojure 1.3.2</tt>
+* From inside a project, invoke <tt>M-x clojure-jack-in</tt>
+
+That's all it takes! There are no extra install steps beyond
+clojure-mode on the Emacs side and the swank-clojure plugin on the
+Leiningen side.
+
+## SLIME Commands
+
+Commonly-used SLIME commands:
+
+* **C-c TAB**: Autocomplete symbol at point
+* **C-x C-e**: Eval the form under the point
+* **C-c C-k**: Compile the current buffer
+* **C-c C-l**: Load current buffer and force required namespaces to reload
+* **M-.**: Jump to the definition of a var
+* **C-c S-i**: Inspect a value
+* **C-c C-m**: Macroexpand the call under the point
+* **C-c C-d C-d**: Look up documentation for a var
+* **C-c C-z**: Switch from a Clojure buffer to the repl buffer
+* **C-c M-p**: Switch the repl namespace to match the current buffer
+* **C-c C-w c**: List all callers of a given function
+
+Pressing "v" on a stack trace a debug buffer will jump to the file and
+line referenced by that frame if possible.
+
+Note that SLIME was designed to work with Common Lisp, which has a
+distinction between interpreted code and compiled code. Clojure has no
+such distinction, so the load-file functionality is overloaded to add
+<code>:reload-all</code> behaviour.
+
+## Alternate Usage
+
+There are other ways to use Swank for different specific
+circumstances.  For each of these methods you will have to install
+slime and slime-repl manually as outlined in "Connecting with SLIME"
+below.
+
+### Standalone Server
+
+If you just want a standalone swank server with no third-party
+libraries, you can use the shell wrapper that Leiningen installs for
+you:
+
+    $ lein plugin install swank-clojure 1.3.2
     $ ~/.lein/bin/swank-clojure
 
     M-x slime-connect
 
 If you put ~/.lein/bin on your $PATH it's even more convenient.
 
-You can also start a swank server from inside your project:
+### Manual Swank in Project
+
+You can also start a swank server from inside your project.
+You'll need to either have installed using <tt>lein plugin
+install</tt> or have added swank-clojure to project.clj:
+
+    [swank-clojure "1.3.2"]
+
+Then launch the server:
 
     $ lein swank # you can specify PORT and HOST optionally
-
-Note that the lein-swank plugin now comes with Swank Clojure; it does
-not need to be specified as a separate dependency any more.
 
 If you're using Maven, add this to your pom.xml under the
 \<dependencies\> section:
@@ -31,12 +82,12 @@ If you're using Maven, add this to your pom.xml under the
     <dependency>
       <groupId>swank-clojure</groupId>
       <artifactId>swank-clojure</artifactId>
-      <version>1.2.1</version>
+      <version>1.3.2</version>
     </dependency>
 
 Then you can launch a swank server like so:
 
-    $ mvn -o clojure:swank
+    $ mvn clojure:swank
 
 Note that due to a bug in clojure-maven-plugin, you currently cannot
 include it as a test-scoped dependency; it must be compile-scoped. You
@@ -49,12 +100,16 @@ slime repl:
 
 ## Connecting with SLIME
 
-Install the "slime-repl" package using package.el. If you are using
-Emacs 23, it's best to get [the latest version of package.el from
-Emacs
-trunk](http://bit.ly/pkg-el). Then
-add Marmalade as an archive source:
+If you're not using the <tt>M-x clojure-jack-in</tt> method mentioned
+above, you'll have to install SLIME yourself. The easiest way is to
+use package.el. If you are using Emacs 24 or the
+[Emacs Starter Kit](http://github.com/technomancy/emacs-starter-kit),
+then you have it already. If not, get it
+[from Emacs's own repository](http://bit.ly/pkg-el23).
 
+Then add Marmalade as an archive source in your Emacs config:
+
+    (require 'package)
     (add-to-list 'package-archives
                  '("marmalade" . "http://marmalade-repo.org/packages/") t)
 
@@ -76,31 +131,9 @@ also warn you that your SLIME version doesn't match your Swank
 version; this should be OK.
 
 Having old versions of SLIME either manually installed or installed
-using a system-wide package manager like apt-get may cause issues.
-
-## SLIME Commands
-
-Commonly-used SLIME commands:
-
-* **C-c TAB**: Autocomplete symbol at point
-* **C-x C-e**: Eval the form under the point
-* **C-c C-k**: Compile the current buffer
-* **C-c C-l**: Load current buffer and force dependent namespaces to reload
-* **M-.**: Jump to the definition of a var
-* **C-c S-i**: Inspect a value
-* **C-c C-m**: Macroexpand the call under the point
-* **C-c C-d C-d**: Look up documentation for a var
-* **C-c C-z**: Switch from a Clojure buffer to the repl buffer
-* **C-c M-p**: Switch the repl namespace to match the current buffer
-* **C-c C-w c**: List all callers of a given function
-
-Pressing "v" on a stack trace a debug buffer will jump to the file and
-line referenced by that frame if possible.
-
-Note that SLIME was designed to work with Common Lisp, which has a
-distinction between interpreted code and compiled code. Clojure has no
-such distinction, so the load-file functionality is overloaded to add
-<code>:reload-all</code> behaviour.
+using a system-wide package manager like apt-get may cause
+issues. Also the official CVS version of SLIME is not supported; it
+often breaks compatibility with Clojure.
 
 ## Embedding
 
@@ -117,18 +150,18 @@ You can also start the server directly from the "java" command-line
 launcher if you AOT-compile it and specify "swank.swank" as your main
 class.
 
-## Debug Repl
+## Debugging
 
-For now, see [Hugo Duncan's
-blog](http://hugoduncan.org/post/2010/swank_clojure_gets_a_break_with_the_local_environment.xhtml)
-for an explanation of this excellent feature. Further documentation to come.
+You can set repl-aware breakpoints using <tt>swank.core/break</tt>.
+For now, see
+[Hugo Duncan's blog](http://hugoduncan.org/post/2010/swank_clojure_gets_a_break_with_the_local_environment.xhtml)
+for an explanation of this excellent feature.
 
-## swank-clojure.el
-
-Previous versions of Swank Clojure bundled an Elisp library called
-swank-clojure.el that provided ways to launch your swank server from
-within your Emacs process. It's much more reliable to launch the
-server from your build tool, so this has been removed.
+[CDT](http://georgejahad.com/clojure/swank-cdt.html) (included in
+Swank Clojure since 1.4.0) is a more comprehensive debugging tool
+that includes support for stepping, seting breakpoints, catching
+exceptions, and eval clojure expressions in the context of the current
+lexical scope.
 
 ## Community
 

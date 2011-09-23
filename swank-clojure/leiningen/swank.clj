@@ -8,19 +8,16 @@
   (when (:eval-in-leiningen project)
     (require '[clojure walk template stacktrace]))
   `(do
-     (let [is# ~(:repl-init-script project)]
+     (when-let [is# ~(:repl-init-script project)]
        (when (.exists (File. (str is#)))
          (load-file is#)))
+     (when-let [repl-init# '~(:repl-init project)]
+       (doto repl-init# require in-ns))
      (require '~'swank.swank)
      (require '~'swank.commands.basic)
-     (@(ns-resolve '~'swank.swank '~'start-repl)
-      (Integer. ~port) ~@(concat (map read-string opts)
-                                 [:host host]))
-     ;; This exits immediately when using :eval-in-leiningen; must block
-     (when ~(:eval-in-leiningen project)
-       (doseq [t# ((ns-resolve '~'swank.commands.basic
-                               '~'get-thread-list))]
-         (.join t#)))))
+     (@(ns-resolve '~'swank.swank '~'start-server)
+      ~@(concat (map read-string opts)
+                [:host host :port (Integer. port) :block true]))))
 
 (defn swank
   "Launch swank server for Emacs to connect. Optionally takes PORT and HOST."
