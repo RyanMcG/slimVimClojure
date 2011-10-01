@@ -572,7 +572,7 @@ that symbols accessible in the current namespace go first."
     (recur parent)
     tg))
 
-(defn get-thread-list []
+(defn- get-thread-list []
   (let [rg (get-root-group (.getThreadGroup (Thread/currentThread)))
         arr (make-array Thread (.activeCount rg))]
     (.enumerate rg arr true)

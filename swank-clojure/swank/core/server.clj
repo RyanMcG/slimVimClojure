@@ -40,10 +40,7 @@
 
    See also: `slime-secret'"
   ([#^Socket socket opts]
-     (returning [conn (make-connection socket (or (:encoding opts)
-                                                  (System/getProperty
-                                                   "swank.encoding"
-                                                   "utf-8-unix")))]
+     (returning [conn (make-connection socket (get opts :encoding default-encoding))]
        (if-let [secret (slime-secret)]
          (when-not (= (read-from-connection conn) secret)
            (close-socket! socket))
@@ -77,7 +74,7 @@
   ([server connection-serve options]
      (start-server-socket! server connection-serve)
      (when-let [announce (options :announce)]
-       (announce options))
+       (announce (.getLocalPort server)))
      server))
 
 (defn setup-server
@@ -90,9 +87,16 @@
                         :host    (opts :host "localhost")
                         :backlog (opts :backlog 0)})
    #(socket-serve connection-serve % opts)
-   (merge {:announce announce-fn} opts)))
+   {:announce announce-fn}))
 
 ;; Announcement functions
-(defn simple-announce [{:keys [message host port] :as opts}]
-  (println (or message (format "Connection opened on %s port %s." host port))))
+(defn simple-announce [port]
+  (println "Connection opened on local port " port))
 
+(defn announce-port-to-file
+  "Writes the given port number into a file."
+  ([#^String file port]
+     (with-open [out (new java.io.FileWriter file)]
+       (doto out
+         (.write (str port "\n"))
+         (.flush)))))
