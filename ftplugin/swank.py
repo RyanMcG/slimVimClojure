@@ -773,6 +773,7 @@ def get_indent_info(name):
 def swank_connection_info():
     actions.clear()
     indent_info.clear()
+    debug_activated = False
     swank_rex(':connection-info', '(swank:connection-info)', 'nil', 't')
 
 def swank_create_repl():
