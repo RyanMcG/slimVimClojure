@@ -13,6 +13,7 @@
         [swank.core connection server]
         [swank.util.concurrent thread]
         [swank.util.net sockets]
+        [swank.commands.basic :only [get-thread-list]]
         [clojure.main :only [repl]])
   (:require [swank.commands]
             [swank.commands basic indent completion
@@ -52,40 +53,25 @@
 (defn start-server
   "Start the server and write the listen port number to
    PORT-FILE. This is the entry point for Emacs."
-  [port-file & opts]
+  [& opts]
   (let [opts (apply hash-map opts)]
     (setup-server (get opts :port 0)
-                  (fn announce-port [port]
-                    (announce-port-to-file port-file port)
-                    (simple-announce port))
+                  simple-announce
                   connection-serve
-                  opts)))
-
-(def #^{:private true} encodings-map
-  {"UTF-8" "utf-8-unix"
-   })
-
-(defn- get-system-encoding []
-  (when-let [enc-name (.name (java.nio.charset.Charset/defaultCharset))]
-    (encodings-map enc-name)))
+                  opts)
+    (when (:block opts)
+      (doseq [t (get-thread-list)]
+         (.join t)))))
 
 (defn start-repl
   "Start the server wrapped in a repl. Use this to embed swank in your code."
   ([port & opts]
      (let [stop (atom false)
-           opts (merge {:port (Integer. port)
-                        :encoding (or (System/getProperty "swank.encoding")
-                                      (get-system-encoding)
-                                      "iso-latin-1-unix")}
-                       (apply hash-map opts))]
+           opts (assoc (apply hash-map opts) :port (Integer. port))]
        (repl :read (fn [rprompt rexit]
                      (if @stop rexit
                          (do (reset! stop true)
-                             `(start-server (-> "java.io.tmpdir"
-                                                (System/getProperty)
-                                                (File. "slime-port.txt")
-                                                (.getCanonicalPath))
-                                            ~@(apply concat opts)))))
+                             `(start-server ~@(apply concat opts)))))
              :need-prompt (constantly false))))
   ([] (start-repl 4005)))
 
