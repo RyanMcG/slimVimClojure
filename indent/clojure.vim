@@ -226,10 +226,10 @@ else
 endif
 
 " Defintions:
-setlocal lispwords=def,def-,defn,defn-,defmacro,defmacro-,defmethod,defmulti
-setlocal lispwords+=defonce,defvar,defvar-,defunbound,let,fn,letfn,binding,proxy
-setlocal lispwords+=defnk,definterface,defprotocol,deftype,defrecord,reify
-setlocal lispwords+=extend,extend-protocol,extend-type,bound-fn
+setlocal lispwords=def,def-,defn,defn-,defmacro,defmacro-,defmethod,defmulti,deftest
+setlocal lispwords+=defonce,defpartial,defpage,defvar,defvar-,defunbound,let,fn,letfn
+setlocal lispwords+=binding,proxy,defnk,definterface,defprotocol,deftype,defrecord
+setlocal lispwords+=reify,extend,extend-protocol,extend-type,bound-fn
 
 " Conditionals and Loops:
 setlocal lispwords+=if,if-not,if-let,when,when-not,when-let,when-first
