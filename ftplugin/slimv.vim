@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
 " Version:      0.9.1
-" Last Change:  07 Oct 2011
+" Last Change:  11 Oct 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -226,6 +226,11 @@ if !exists( 'g:slimv_repl_wrap' )
     let g:slimv_repl_wrap = 1
 endif
 
+" Wrap long lines in SLDB buffer
+if !exists( 'g:slimv_sldb_wrap' )
+    let g:slimv_sldb_wrap = 0
+endif
+
 " Maximum number of lines echoed from the evaluated form
 if !exists( 'g:slimv_echolines' )
     let g:slimv_echolines = 4
@@ -326,6 +331,7 @@ let s:current_buf = -1                                    " Swank action was req
 let s:current_win = -1                                    " Swank action was requested from this window
 let s:skip_sc = 'synIDattr(synID(line("."), col("."), 0), "name") =~ "[Ss]tring\\|[Cc]omment"'
                                                           " Skip matches inside string or comment 
+let s:frame_def = '^\s\{0,2}\d\{1,3}:'                    " Regular expression to match SLDB restart or frame identifier
 let s:sldb_name      = 'Slimv.SLDB'                       " Name of the SLDB buffer
 let s:inspect_name   = 'Slimv.INSPECT'                    " Name of the Inspect buffer
 
@@ -647,7 +653,7 @@ function! SlimvOpenReplBuffer()
         noremap  <buffer> <silent>        j      gj
         noremap  <buffer> <silent>        0      g0
         noremap  <buffer> <silent>        $      :call <SID>EndOfScreenLine()<CR>
-        set wrap
+        setlocal wrap
     endif
 
     hi SlimvNormal term=none cterm=none gui=none
@@ -696,6 +702,11 @@ function SlimvOpenSldbBuffer()
     setlocal foldmethod=marker
     setlocal foldmarker={{{,}}}
     setlocal foldtext=substitute(getline(v:foldstart),'{{{','','')
+    setlocal iskeyword+=+,-,*,/,%,<,=,>,:,$,?,!,@-@,94,~,#,\|,&,{,},[,]
+    if g:slimv_sldb_wrap
+        setlocal wrap
+    endif
+
     if version < 703
         " conceal mechanism is defined since Vim 7.3
         syn match Ignore /{{{/
@@ -705,7 +716,7 @@ function SlimvOpenSldbBuffer()
         syn match Comment /{{{/ conceal
         syn match Comment /}}}/ conceal
     endif
-    syn match Type /^\s*\d\+:/
+    syn match Type /^\s\{0,2}\d\{1,3}:/
     syn match Type /^\s\+in "\(.*\)" \(line\|byte\) \(\d\+\)$/
 endfunction
 
@@ -1000,7 +1011,9 @@ function! SlimvSend( args, echoing, output )
         " Open a new line for the output
         call append( '$', '' )
     endif
-    call SlimvMarkBufferEnd()
+    if a:output
+        call SlimvMarkBufferEnd()
+    endif
     call SlimvCommand( 'python swank_input("s:swank_form")' )
     let s:swank_package = ''
     let s:refresh_disabled = 0
@@ -1317,9 +1330,9 @@ function! SlimvHandleEnterSldb()
     let line = getline('.')
     if s:debug_activated
         " Check if Enter was pressed in a section printed by the SWANK debugger
-        let item = matchstr( line, '^\s*\d\+' )
+        let item = matchstr( line, s:frame_def )
         if item != ''
-            let item = substitute( item, '\s', '', 'g' )
+            let item = substitute( item, '\s\|:', '', 'g' )
             if search( '^Backtrace:', 'bnW' ) > 0
                 if foldlevel('.')
                     " With a fold just toggle visibility
@@ -1545,7 +1558,15 @@ function! SlimvGetRegion() range
         let firstcol = col( a:firstline ) - 1
         let lastcol  = col( a:lastline  ) - 2
     else
+        " No range was selected, select current paragraph
+        normal! vap
+        execute "normal! \<Esc>"
+        call setpos( '.', oldpos ) 
         let lines = getline( "'<", "'>" )
+        if lines == [] || lines == ['']
+            call SlimvError( "No range selected." )
+            return []
+        endif
         let firstcol = col( "'<" ) - 1
         let lastcol  = col( "'>" ) - 2
     endif
@@ -1572,7 +1593,9 @@ endfunction
 " Eval buffer lines in the given range
 function! SlimvEvalRegion() range
     let lines = SlimvGetRegion()
-    call SlimvEval( lines )
+    if lines != []
+        call SlimvEval( lines )
+    endif
 endfunction
 
 " Eval contents of the 's' register
@@ -1637,13 +1660,16 @@ function! s:DebugFrame()
         " Check if we are in SLDB
         let repl_buf = bufnr( s:sldb_name )
         if repl_buf != -1 && repl_buf == bufnr( "%" )
-            let bcktrpos = search( '^Backtrace:', 'bcnW' )
-            let framepos = search( '^\s*\d\+', 'bcnW' )
+            let bcktrpos = search( '^Backtrace:', 'bcnw' )
+            let framepos = line( '.' )
+            if matchstr( getline('.'), s:frame_def ) == ''
+                let framepos = search( s:frame_def, 'bcnw' )
+            endif
             if framepos > 0 && bcktrpos > 0 && framepos > bcktrpos
                 let line = getline( framepos )
-                let item = matchstr( line, '^\s*\d\+' )
+                let item = matchstr( line, s:frame_def )
                 if item != ''
-                    return substitute( item, '\s', '', 'g' )
+                    return substitute( item, '\s\|:', '', 'g' )
                 endif
             endif
         endif
@@ -1794,13 +1820,25 @@ function! SlimvInspect()
     let frame = s:DebugFrame()
     if frame != ''
         " Inspect selected for a frame in the debugger's Backtrace section
-        let sym = SlimvSelectSymbolExt()
-        if matchstr( sym, '^\d\+' ) != ''
-            " No symbol selected, this is just a number
+        let line = getline( '.' )
+        if matchstr( line, s:frame_def ) != ''
+            " This is the base frame line in form '  1: xxxxx'
             let sym = ''
+        elseif matchstr( line, '^\s\+in "\(.*\)" \(line\|byte\)' ) != ''
+            " This is the source location line
+            let sym = ''
+        elseif matchstr( line, '^\s\+No source line information' ) != ''
+            " This is the no source location line
+            let sym = ''
+        elseif matchstr( line, '^\s\+Locals:' ) != ''
+            " This is the 'Locals' line
+            let sym = ''
+        else
+            let sym = SlimvSelectSymbolExt()
         endif
-        let s = input( 'Inspect in frame ' . frame . ': ', sym )
+        let s = input( 'Inspect in frame ' . frame . ' (evaluated): ', sym )
         if s != ''
+            call SlimvBeginUpdate()
             call SlimvCommand( 'python swank_inspect_in_frame("' . s . '", ' . frame . ')' )
             call SlimvRefreshReplBuffer()
         endif
@@ -1997,6 +2035,9 @@ endfunction
 function! SlimvCompileRegion() range
     let oldpos = getpos( '.' ) 
     let lines = SlimvGetRegion()
+    if lines == []
+        return
+    endif
     let region = join( lines, "\n" )
     if s:swank_connected
         let s:swank_form = region
