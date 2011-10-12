@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
 " Version:      0.9.1
-" Last Change:  11 Oct 2011
+" Last Change:  12 Oct 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -1330,15 +1330,15 @@ function! SlimvHandleEnterSldb()
     let line = getline('.')
     if s:debug_activated
         " Check if Enter was pressed in a section printed by the SWANK debugger
+        if foldlevel('.')
+            " With a fold just toggle visibility
+            normal za
+            return
+        endif
         let item = matchstr( line, s:frame_def )
         if item != ''
             let item = substitute( item, '\s\|:', '', 'g' )
             if search( '^Backtrace:', 'bnW' ) > 0
-                if foldlevel('.')
-                    " With a fold just toggle visibility
-                    normal za
-                    return
-                endif
                 " Display item-th frame
                 call SlimvMakeFold()
                 silent execute 'python swank_frame_locals("' . item . '")'
@@ -1773,6 +1773,19 @@ function! SlimvMacroexpandAll()
         endif
         let s:swank_form = SlimvGetSelection()
         call SlimvCommandUsePackage( 'python swank_macroexpand_all("s:swank_form")' )
+    else
+        call SlimvError( "Not connected to SWANK server." )
+    endif
+endfunction
+
+" Set a breakpoint on the beginning of a function
+function! SlimvBreak()
+    if s:swank_connected
+        let s = input( 'Set breakpoint: ', SlimvSelectSymbol() )
+        if s != ''
+            call SlimvCommandUsePackage( 'python swank_set_break("' . s . '")' )
+            redraw!
+        endif
     else
         call SlimvError( "Not connected to SWANK server." )
     endif
@@ -2356,16 +2369,17 @@ call s:MenuMap( 'Slim&v.&Evaluation.&Undefine-Function',        g:slimv_leader.'
 " Debug commands
 call s:MenuMap( 'Slim&v.De&bugging.Macroexpand-&1',             g:slimv_leader.'1',  g:slimv_leader.'m1',  ':<C-U>call SlimvMacroexpand()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Macroexpand-All',           g:slimv_leader.'m',  g:slimv_leader.'ma',  ':<C-U>call SlimvMacroexpandAll()<CR>' )
-
 call s:MenuMap( 'Slim&v.De&bugging.Toggle-&Trace\.\.\.',        g:slimv_leader.'t',  g:slimv_leader.'dt',  ':call SlimvTrace()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.U&ntrace-All',               g:slimv_leader.'T',  g:slimv_leader.'du',  ':call SlimvUntrace()<CR>' )
-
+call s:MenuMap( 'Slim&v.De&bugging.Set-&Breakpoint',            g:slimv_leader.'B',  g:slimv_leader.'db',  ':call SlimvBreak()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.Disassemb&le\.\.\.',         g:slimv_leader.'l',  g:slimv_leader.'dd',  ':call SlimvDisassemble()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Inspect\.\.\.',             g:slimv_leader.'i',  g:slimv_leader.'di',  ':call SlimvInspect()<CR>' )
+call s:MenuMap( 'Slim&v.De&bugging.-SldbSep-',                  '',                  '',                   ':' )
 call s:MenuMap( 'Slim&v.De&bugging.&Abort',                     g:slimv_leader.'a',  g:slimv_leader.'da',  ':call SlimvDebugCommand("swank_invoke_abort")<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Quit-to-Toplevel',          g:slimv_leader.'q',  g:slimv_leader.'dq',  ':call SlimvDebugCommand("swank_throw_toplevel")<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Continue',                  g:slimv_leader.'n',  g:slimv_leader.'dc',  ':call SlimvDebugCommand("swank_invoke_continue")<CR>' )
-call s:MenuMap( 'Slim&v.De&bugging.&List-Threads',              g:slimv_leader.'H',  g:slimv_leader.'dl',  ':call SlimvListThreads()<CR>' )
+call s:MenuMap( 'Slim&v.De&bugging.-ThreadSep-',                '',                  '',                   ':' )
+call s:MenuMap( 'Slim&v.De&bugging.List-T&hreads',              g:slimv_leader.'H',  g:slimv_leader.'dl',  ':call SlimvListThreads()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Kill-Thread\.\.\.',         g:slimv_leader.'K',  g:slimv_leader.'dk',  ':call SlimvKillThread()<CR>' )
 call s:MenuMap( 'Slim&v.De&bugging.&Debug-Thread\.\.\.',        g:slimv_leader.'G',  g:slimv_leader.'dg',  ':call SlimvDebugThread()<CR>' )
 
@@ -2388,7 +2402,7 @@ call s:MenuMap( 'Slim&v.&Xref.List-Call&ees',                   g:slimv_leader.'
 
 " Profile commands
 call s:MenuMap( 'Slim&v.&Profiling.Toggle-&Profile\.\.\.',      g:slimv_leader.'p',  g:slimv_leader.'pp',  ':<C-U>call SlimvProfile()<CR>' )
-call s:MenuMap( 'Slim&v.&Profiling.Profile-&By-Substring\.\.\.',g:slimv_leader.'B',  g:slimv_leader.'pb',  ':<C-U>call SlimvProfileSubstring()<CR>' )
+call s:MenuMap( 'Slim&v.&Profiling.Profile-&By-Substring\.\.\.',g:slimv_leader.'P',  g:slimv_leader.'pb',  ':<C-U>call SlimvProfileSubstring()<CR>' )
 call s:MenuMap( 'Slim&v.&Profiling.Unprofile-&All',             g:slimv_leader.'U',  g:slimv_leader.'pa',  ':<C-U>call SlimvUnprofileAll()<CR>' )
 call s:MenuMap( 'Slim&v.&Profiling.&Show-Profiled',             g:slimv_leader.'?',  g:slimv_leader.'ps',  ':<C-U>call SlimvShowProfiled()<CR>' )
 call s:MenuMap( 'Slim&v.&Profiling.-ProfilingSep-',             '',                  '',                   ':' )
