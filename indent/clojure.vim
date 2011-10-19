@@ -200,7 +200,14 @@ function! GetClojureIndent()
 		return paren[1] + &shiftwidth - 1
 	endif
 
-	if g:vimclojure#FuzzyIndent && w =~ '\(^\|/\)\(def\|with\)'
+	" XXX: Slight glitch here with special cases. However it's only
+	" a heureustic. Offline we can't do more.
+	if g:vimclojure#FuzzyIndent
+				\ && w != 'with-meta'
+				\ && w != 'clojure.core/with-meta'
+				\ && w =~ '\(^\|/\)\(def\|with\)'
+				\ && w !~ '\(^\|/\)\(def\|with\).*\*$'
+				\ && w !~ '\(^\|/\)\(def\|with\).*-fn$'
 		return paren[1] + &shiftwidth - 1
 	endif
 
@@ -226,10 +233,10 @@ else
 endif
 
 " Defintions:
-setlocal lispwords=def,def-,defn,defn-,defmacro,defmacro-,defmethod,defmulti,deftest
-setlocal lispwords+=defonce,defpartial,defpage,defvar,defvar-,defunbound,let,fn,letfn
-setlocal lispwords+=binding,proxy,defnk,definterface,defprotocol,deftype,defrecord
-setlocal lispwords+=reify,extend,extend-protocol,extend-type,bound-fn
+setlocal lispwords=def,def-,defn,defn-,defmacro,defmacro-,defmethod,defmulti
+setlocal lispwords+=defonce,defvar,defvar-,defunbound,let,fn,letfn,binding,proxy
+setlocal lispwords+=defnk,definterface,defprotocol,deftype,defrecord,reify
+setlocal lispwords+=extend,extend-protocol,extend-type,bound-fn
 
 " Conditionals and Loops:
 setlocal lispwords+=if,if-not,if-let,when,when-not,when-let,when-first
@@ -245,5 +252,8 @@ setlocal lispwords+=ns,clojure.core/ns
 
 " Java Classes:
 setlocal lispwords+=gen-class,gen-interface
+
+" Custom:
+setlocal lispwords+=defpartial,defpage,deftest
 
 let &cpo = s:save_cpo
