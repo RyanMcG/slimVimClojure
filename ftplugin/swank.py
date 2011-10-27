@@ -4,8 +4,8 @@
 #
 # SWANK client for Slimv
 # swank.py:     SWANK client code for slimv.vim plugin
-# Version:      0.9.0
-# Last Change:  29 Sep 2011
+# Version:      0.9.2
+# Last Change:  26 Oct 2011
 # Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 # License:      This file is placed in the public domain.
 #               No warranty, express or implied.
@@ -40,6 +40,7 @@ prompt          = 'SLIMV'       # Command prompt
 package         = 'COMMON-LISP-USER' # Current package
 actions         = dict()        # Swank actions (like ':write-string'), by message id
 indent_info     = dict()        # Data of :indentation-update
+frame_locals    = dict()        # Map frame variable names to their index
 
 
 ###############################################################################
@@ -170,9 +171,10 @@ def parse_sexpr( sexpr ):
 ###############################################################################
 
 class swank_action:
-    def __init__ (self, id, name):
+    def __init__ (self, id, name, data):
         self.id = id
         self.name = name
+        self.data = data
         self.result = ''
         self.pending = True
 
@@ -213,7 +215,7 @@ def parse_plist(lst, keyword):
             return unquote(lst[i+1])
     return ''
 
-def parse_location(fname, loc):
+def parse_filepos(fname, loc):
     lnum = 1
     cnum = 1
     pos = loc
@@ -235,6 +237,32 @@ def format_filename(fname):
     if fname.find(' '):
         fname = '"' + fname + '"'
     return fname
+
+def parse_location(lst):
+    fname = ''
+    line  = ''
+    pos   = ''
+    if lst[0] == ':location':
+        if type(lst[1]) == str:
+            return unquote(lst[1])
+        for l in lst[1:]:
+            if l[0] == ':file':
+                fname = l[1]
+            if l[0] == ':line':
+                line = l[1]
+            if l[0] == ':position':
+                pos = l[1]
+        if fname == '':
+            fname = 'Unknown file'
+        if line != '':
+            return 'in ' + format_filename(fname) + ' line ' + line
+        if pos != '':
+            [lnum, cnum] = parse_filepos(unquote(fname), int(pos))
+            if lnum > 0:
+                return 'in ' + format_filename(fname) + ' line ' + str(lnum)
+            else:
+                return 'in ' + format_filename(fname) + ' byte ' + pos
+    return 'no source line information'
 
 def unicode_len(text):
     return len(unicode(text, "utf-8"))
@@ -377,15 +405,7 @@ def swank_parse_xref(struct):
     """
     buf = ''
     for e in struct:
-        buf = buf + unquote(e[0]) + ' - '
-        if len(e) > 1:
-            key = e[1][0]
-            if key == ':error':
-                buf = buf + 'no source information\n'
-            elif type(unquote(e[1][1])) == str:
-                buf = unquote(e[1][1]) + '\n'
-            else:
-                buf = unquote(e[1][1][1]) + '\n'
+        buf = buf + unquote(e[0]) + ' - ' + parse_location(e[1]) + '\n'
     return buf
 
 def swank_parse_compile(struct):
@@ -426,7 +446,7 @@ def swank_parse_compile(struct):
                     lnum = pos
                     cnum = 1
                 else:
-                    [lnum, cnum] = parse_location(fname, int(pos))
+                    [lnum, cnum] = parse_filepos(fname, int(pos))
                 msg = msg.replace("'", "' . \"'\" . '")
                 qfentry = "{'filename':'"+fname+"','lnum':'"+str(lnum)+"','col':'"+str(cnum)+"','text':'"+msg+"'}"
                 logprint(qfentry)
@@ -443,15 +463,15 @@ def swank_parse_list_threads(tl):
     logprint(str(lst))
     idx = 0
     for t in lst:
-        buf = buf + "\n%3d. %3d: %-22s %s" % (idx, int(t[0]), unquote(t[2]), unquote(t[1]))
+        buf = buf + "\n%3d. ID%3d: %-22s %s" % (idx, int(t[0]), unquote(t[2]), unquote(t[1]))
         idx = idx + 1
     return buf
 
-def swank_parse_frame_call(struct):
+def swank_parse_frame_call(struct, action):
     """
     Parse frame call output
     """
-    vim.command('call SlimvOpenSldbBuffer()')
+    vim.command('call SlimvGotoFrame(' + action.data + ')')
     buf = vim.current.buffer
     win = vim.current.window
     line = win.cursor[0]
@@ -461,43 +481,60 @@ def swank_parse_frame_call(struct):
         buf[line:line] = ['No frame call information']
     vim.command('call SlimvEndUpdate()')
 
-def swank_parse_frame_source(struct):
+def swank_parse_frame_source(struct, action):
     """
     Parse frame source output
     http://comments.gmane.org/gmane.lisp.slime.devel/9961 ;-(
     'Well, let's say a missing feature: source locations are currently not available for code loaded as source.'
     """
-    vim.command('call SlimvOpenSldbBuffer()')
+    vim.command('call SlimvGotoFrame(' + action.data + ')')
     buf = vim.current.buffer
     win = vim.current.window
     line = win.cursor[0]
     if type(struct) == list and len(struct) == 4:
-        [lnum, cnum] = parse_location(unquote(struct[1][1]), int(struct[2][1]))
-        fname = format_filename(struct[1][1])
-        if lnum > 0:
-            s = '     in ' + fname + ' line ' + str(lnum)
+        if struct[1] == 'nil':
+            [lnum, cnum] = [int(struct[2][1]), 1]
+            fname = 'Unknown file'
         else:
-            s = '     in ' + fname + ' byte ' + struct[2][1]
-        buf[line:line] = s.splitlines();
+            [lnum, cnum] = parse_filepos(unquote(struct[1][1]), int(struct[2][1]))
+            fname = format_filename(struct[1][1])
+        if lnum > 0:
+            s = '      in ' + fname + ' line ' + str(lnum)
+        else:
+            s = '      in ' + fname + ' byte ' + struct[2][1]
+        slines = s.splitlines()
+        if len(slines) > 2:
+            # Make a fold (closed) if there are too many lines
+            slines[ 0] = slines[ 0] + '{{{'
+            slines[-1] = slines[-1] + '}}}'
+            buf[line:line] = slines
+            vim.command(str(line+1) + 'foldclose')
+        else:
+            buf[line:line] = slines
     else:
-        buf[line:line] = ['     No source line information']
+        buf[line:line] = ['      No source line information']
     vim.command('call SlimvEndUpdate()')
 
-def swank_parse_locals(struct):
+def swank_parse_locals(struct, action):
     """
     Parse frame locals output
     """
-    vim.command('call SlimvOpenSldbBuffer()')
+    frame_num = action.data
+    vim.command('call SlimvGotoFrame(' + frame_num + ')')
     buf = vim.current.buffer
     win = vim.current.window
     line = win.cursor[0]
     if type(struct) == list:
-        lines = '    Locals:\n'
+        lines = '    Locals:'
+        num = 0
         for f in struct:
             name  = parse_plist(f, ':name')
             id    = parse_plist(f, ':id')
             value = parse_plist(f, ':value')
-            lines = lines + '      ' + name + ' = ' + value + '\n'
+            lines = lines + '\n      ' + name + ' = ' + value
+            # Remember variable index in frame
+            frame_locals[str(frame_num) + " " + name] = num
+            num = num + 1
     else:
         lines = '    No locals'
     buf[line:line] = lines.split("\n")
@@ -596,25 +633,27 @@ def swank_listen():
                         params = r[1][1]
                         logprint('params: ' + str(params))
                         if type(params) == str:
-                            to_ignore = [':frame-call']
+                            element = params.lower()
+                            to_ignore = [':frame-call', ':quit-inspector']
+                            to_nodisp = [':describe-symbol']
+                            to_prompt = [':undefine-function', ':swank-macroexpand-1', ':swank-macroexpand-all', ':disassemble-form', \
+                                         ':load-file', ':toggle-profile-fdefinition', ':profile-by-substring', ':swank-toggle-trace', 'sldb-break']
                             if action and action.name in to_ignore:
                                 # Just ignore the output for this message
                                 pass
+                            elif element == 'nil' and action and action.name == ':inspector-pop':
+                                # Quit inspector
+                                vim.command('b #')
+                            elif element != 'nil' and action and action.name in to_nodisp:
+                                # Do not display output, just store it in actions
+                                action.result = unquote(params)
                             else:
-                                element = params.lower()
                                 retval = retval + new_line(retval)
                                 if element != 'nil':
                                     retval = retval + unquote(params)
                                     if action:
                                         action.result = retval
-                                # List of actions needing a prompt
-                                to_prompt = [':describe-symbol', ':undefine-function', ':swank-macroexpand-1', ':swank-macroexpand-all', \
-                                             ':load-file', ':toggle-profile-fdefinition', ':profile-by-substring', ':disassemble-form', \
-                                             ':swank-toggle-trace']
-                                if element == 'nil' and action and action.name == ':inspector-pop':
-                                    # Quit inspector
-                                    vim.command('b #')
-                                elif element == 'nil' or (action and action.name in to_prompt):
+                                if element == 'nil' or (action and action.name in to_prompt):
                                     # No more output from REPL, write new prompt
                                     retval = retval + new_line(retval) + prompt + '> '
 
@@ -682,11 +721,11 @@ def swank_listen():
                                         retval = retval + '\n' + '  ' + f
                                     retval = retval + '\n' + prompt + '> '
                                 elif action.name == ':frame-call':
-                                    swank_parse_frame_call(params)
+                                    swank_parse_frame_call(params, action)
                                 elif action.name == ':frame-source-location':
-                                    swank_parse_frame_source(params)
+                                    swank_parse_frame_source(params, action)
                                 elif action.name == ':frame-locals-and-catch-tags':
-                                    swank_parse_locals(params)
+                                    swank_parse_locals(params, action)
                                 elif action.name == ':profiled-functions':
                                     retval = retval + '\n' + 'Profiled functions:\n'
                                     for f in params:
@@ -715,6 +754,7 @@ def swank_listen():
                     current_thread = r[1]
                     sldb_level = r[2]
                     vim.command('let s:debug_activated=' + sldb_level)
+                    frame_locals.clear()
 
                 elif message == ':debug-return':
                     debug_active = False
@@ -728,14 +768,14 @@ def swank_listen():
         empty_last_line = (retval[-1] == '\n')
     return retval
 
-def swank_rex(action, cmd, package, thread):
+def swank_rex(action, cmd, package, thread, data=''):
     """
     Send an :emacs-rex command to SWANK
     """
     global id
     id = id + 1
     key = str(id)
-    actions[key] = swank_action(key, action)
+    actions[key] = swank_action(key, action, data)
     form = '(:emacs-rex ' + cmd + ' ' + package + ' ' + thread + ' ' + str(id) + ')\n'
     swank_send(form)
 
@@ -771,8 +811,13 @@ def get_indent_info(name):
 ###############################################################################
 
 def swank_connection_info():
+    global log
     actions.clear()
     indent_info.clear()
+    frame_locals.clear()
+    debug_activated = False
+    if vim.eval('exists("g:swank_log") && g:swank_log') != '0':
+        log = True
     swank_rex(':connection-info', '(swank:connection-info)', 'nil', 't')
 
 def swank_create_repl():
@@ -784,7 +829,7 @@ def swank_eval(exp):
 
 def swank_eval_in_frame(exp, n):
     cmd = '(swank:eval-string-in-frame ' + requote(exp) + ' ' + str(n) + ')'
-    swank_rex(':eval-string-in-frame', cmd, get_swank_package(), current_thread)
+    swank_rex(':eval-string-in-frame', cmd, get_swank_package(), current_thread, str(n))
 
 def swank_pprint_eval(exp):
     cmd = '(swank:pprint-eval ' + requote(exp) + ')'
@@ -795,7 +840,7 @@ def swank_interrupt():
 
 def swank_invoke_restart(level, restart):
     cmd = '(swank:invoke-nth-restart-for-emacs ' + level + ' ' + restart + ')'
-    swank_rex(':invoke-nth-restart-for-emacs', cmd, 'nil', current_thread)
+    swank_rex(':invoke-nth-restart-for-emacs', cmd, 'nil', current_thread, restart)
 
 def swank_throw_toplevel():
     swank_rex(':throw-to-toplevel', '(swank:throw-to-toplevel)', 'nil', current_thread)
@@ -812,15 +857,15 @@ def swank_require(contrib):
 
 def swank_frame_call(frame):
     cmd = '(swank-backend:frame-call ' + frame + ')'
-    swank_rex(':frame-call', cmd, 'nil', current_thread)
+    swank_rex(':frame-call', cmd, 'nil', current_thread, frame)
 
 def swank_frame_source_loc(frame):
     cmd = '(swank:frame-source-location ' + frame + ')'
-    swank_rex(':frame-source-location', cmd, 'nil', current_thread)
+    swank_rex(':frame-source-location', cmd, 'nil', current_thread, frame)
 
 def swank_frame_locals(frame):
     cmd = '(swank:frame-locals-and-catch-tags ' + frame + ')'
-    swank_rex(':frame-locals-and-catch-tags', cmd, 'nil', current_thread)
+    swank_rex(':frame-locals-and-catch-tags', cmd, 'nil', current_thread, frame)
 
 def swank_set_package(pkg):
     cmd = '(swank:set-package "' + pkg + '")'
@@ -861,21 +906,29 @@ def swank_inspect(symbol):
 
 def swank_inspect_nth_part(n):
     cmd = '(swank:inspect-nth-part ' + str(n) + ')'
-    swank_rex(':inspect-nth-part', cmd, 'nil', 't')
+    swank_rex(':inspect-nth-part', cmd, 'nil', 't', str(n))
 
 def swank_inspector_nth_action(n):
     cmd = '(swank:inspector-call-nth-action ' + str(n) + ')'
-    swank_rex(':inspector-call-nth-action', cmd, 'nil', 't')
+    swank_rex(':inspector-call-nth-action', cmd, 'nil', 't', str(n))
 
 def swank_inspector_pop():
     swank_rex(':inspector-pop', '(swank:inspector-pop)', 'nil', 't')
 
 def swank_inspect_in_frame(symbol, n):
-    cmd = '(swank:inspect-in-frame "' + symbol + '" ' + str(n) + ')'
-    swank_rex(':inspect-in-frame', cmd, get_swank_package(), current_thread)
+    key = str(n) + " " + symbol
+    if frame_locals.has_key(key):
+        cmd = '(swank:inspect-frame-var ' + str(n) + " " + str(frame_locals[key]) + ')'
+    else:
+        cmd = '(swank:inspect-in-frame "' + symbol + '" ' + str(n) + ')'
+    swank_rex(':inspect-in-frame', cmd, get_swank_package(), current_thread, str(n))
 
 def swank_quit_inspector():
     swank_rex(':quit-inspector', '(swank:quit-inspector)', 'nil', 't')
+
+def swank_set_break(symbol):
+    cmd = '(swank:sldb-break"' + symbol + '")'
+    swank_rex(':sldb-break', cmd, get_package(), 't')
 
 def swank_toggle_trace(symbol):
     cmd = '(swank:swank-toggle-trace "' + symbol + '")'
@@ -951,11 +1004,11 @@ def swank_list_threads():
 
 def swank_kill_thread(index):
     cmd = '(swank:kill-nth-thread ' + str(index) + ')'
-    swank_rex(':kill-thread', cmd, get_package(), 't')
+    swank_rex(':kill-thread', cmd, get_package(), 't', str(index))
 
 def swank_debug_thread(index):
     cmd = '(swank:debug-nth-thread ' + str(index) + ')'
-    swank_rex(':debug-thread', cmd, get_package(), 't')
+    swank_rex(':debug-thread', cmd, get_package(), 't', str(index))
 
 ###############################################################################
 # Generic SWANK connection handling

@@ -1,7 +1,7 @@
-*slimv.txt*                    Slimv                 Last Change: 14 Sep 2011
+*slimv.txt*                    Slimv                 Last Change: 26 Oct 2011
 
 Slimv                                                                  *slimv*
-                               Version 0.9.0
+                               Version 0.9.2
 
 The Superior Lisp Interaction Mode for Vim.
 This plugin is aimed to help Lisp development by interfacing between Vim and
@@ -117,7 +117,7 @@ CONFIGURATION                                             *slimv-configuration*
 |slimv-keyboard|             Keyboard mappings
 
 -------------------------------------------------------------------------------
-                                                                *slimv_options*
+                                                                *slimv-options*
 
 The list below contains an alphabetical collection of Slimv options.
 Below that list follows the detailed explanation on each option.
@@ -151,6 +151,11 @@ For the Swank options plese visit |swank-configuration|.
 
 |g:slimv_impl|               The Lisp implementation. Defaults to 'clisp'.
 
+|g:slimv_indent_maxlines|    Maximum number of lines searched backwards for
+                             indenting special forms
+
+|g:slimv_inspect_name|       Name of the Inspect buffer.
+
 |g:slimv_javadoc_root|       Base URL for the JavaDoc.
 
 |g:slimv_keybindings|        Predefined Slimv keybindings. Possible values:
@@ -167,9 +172,7 @@ For the Swank options plese visit |swank-configuration|.
 
 |g:slimv_python|             Path for the Python interpreter.
 
-|g:slimv_repl_dir|           Directory path for the Lisp REPL buffer file.
-
-|g:slimv_repl_file|          Filename without path for the REPL buffer file.
+|g:slimv_repl_name|          Name of the REPL buffer.
 
 |g:slimv_repl_split|         Open the Lisp REPL buffer in a split window
                              or in a separate buffer.
@@ -179,6 +182,10 @@ For the Swank options plese visit |swank-configuration|.
 |g:slimv_repl_wrap|          Set wrap mode for the REPL buffer.
 
 |g:slimv_simple_compl|       Use simple completion instead of fuzzy completion.
+
+|g:slimv_sldb_name|          Name of the SLDB buffer.
+
+|g:slimv_sldb_wrap|          Set wrap mode for the SLDB buffer.
 
 |g:slimv_swank_clojure|      Command used to start the Clojure SWANK server.
 
@@ -191,6 +198,8 @@ For the Swank options plese visit |swank-configuration|.
 
 |g:slimv_updatetime|         Alternative value for 'updatetime' during REPL
                              refresh.
+
+|g:swank_block_size|         SWANK connection output buffer size.
 
 |g:swank_host|               Host name or IP address of the SWANK server.
 
@@ -294,6 +303,14 @@ Example startup script:
                      :dont-close t)
 
 
+                                                           *g:swank_block_size*
+By default the SWANK server connection output buffer size is 4 or 8 kbytes.
+All the data sent by the SWANK server is divided into this size blocks, so
+if the SWANK server is sending large amount of data then this may result in
+high number of data blocks sent, which may slow down Slimv. For greater
+performance you may want to increase the block size, e.g. to 64 kbytes:
+    let g:swank_block_size = 65536
+
                                                                  *g:swank_host*
 Host name or IP address of the SWANK server. Default value is 'localhost'.
 The SWANK server may run on a remote machine, but currently only unencrypted
@@ -354,18 +371,20 @@ This option is empty by default, which means that the command associated with
 the .html extension (on Windows) or returned by the Python webbrowser package
 (on Linux) is used to start the browser.
 
-                                                             *g:slimv_repl_dir*
-Directory path for the Lisp REPL buffer file. By default this is a directory
-for temporary files, something like /tmp/ on Linux or
-"C:\Documents and Settings\Username\Local Settings\Temp\" on Windows.
-The directory name must end with the pathname separator (/ or \).
-See also |g:slimv_repl_file|.
+                                                            *g:slimv_repl_name*
+Name of the REPL buffer. Default is 'REPL'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ REPL', '\#REPL\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
 
-                                                            *g:slimv_repl_file*
-The Lisp REPL output is written to a temporary file by the SWANK client.
-|g:slimv_repl_file| defines the filename part of the REPL output file without
-the directory path. The complete REPL filename is built from
-|g:slimv_repl_dir| and |g:slimv_repl_file|.
+                                                            *g:slimv_sldb_name*
+Name of the SLDB buffer. Default is 'SLDB'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ Debugger', '\#SLDB\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
+
+                                                         *g:slimv_inspect_name*
+Name of the Inspect buffer. Default is 'INSPECT'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ Incpector', '\#INSPECT\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
 
                                                            *g:slimv_repl_split*
 Open the Lisp REPL buffer in a split window or in a separate buffer in Vim.
@@ -417,6 +436,11 @@ This is the default behaviour as it is how regular REPL windows work. This
 mode also enables keybindings for cursor movements, so that an <Up> keypress
 will move the cursor one line on the display and not one line in the document.
 
+                                                            *g:slimv_sldb_wrap*
+Set wrap mode for the SLDB buffer, which means the lines longer than the
+window width will not be hidden to the right. Instead they will be continued
+in the next display line. Disabled by default.
+
                                                             *g:slimv_echolines*
 If a long form is evaluated then echo only this number of lines from the
 beginning of the form. This option prevents filling the REPL buffer with
@@ -424,6 +448,10 @@ mostly unnecessary information. Closing parens are added to the end even if
 the end of the form is not echoed, so paren balance is kept.
 If this option is set to zero then no line is echoed at all, if set to -1
 then all lines are always echoed.
+
+                                                      *g:slimv_indent_maxlines*
+Maximum number of lines searched backwards for indenting special forms, like
+flet, labels, macrolet. Setting it to a high value may slow down indenting.
 
                                                               *g:slimv_balloon*
 Specifies if describe tooltips are on (see |swank-describe|).
@@ -475,7 +503,7 @@ Example:
     let g:slimv_template_apropos = '(apropos "%1")'
 
 -------------------------------------------------------------------------------
-                                                               *slimv_keyboard*
+                                                               *slimv-keyboard*
 
 The default keybindings (|g:slimv_keybindings|=1) and another easy to remember
 built-in keybinding set (|g:slimv_keybindings|=2) for Slimv are the following.
@@ -604,7 +632,7 @@ EVALUATION                                                         *swank-eval*
 There are various methods for evaluating an s-expression in the SWANK server.
 It is possible to eval the current top level form, the current subform, the
 visually selected area, or the whole buffer. Consult the "Evaluation commands"
-section in |slimv_keyboard| for the possible functions with their respective
+section in |slimv-keyboard| for the possible functions with their respective
 keyboard shortcuts.
 
 
@@ -637,9 +665,9 @@ before resuming execution.
 -------------------------------------------------------------------------------
 INVOKE RESTARTS                                                *swank-restarts*
 
-In case of an error or when the Lisp process is interrupted SLDB displays
-the condition and the list of possible restarts, each line startin with the
-restart identifier, for example:
+In case of an error or when the Lisp process is interrupted Slimv presents
+the Swank debugger (SLDB) buffer. SLDB displays the condition and the list of
+possible restarts, each line startin with the restart identifier, for example:
 
 DIVISION-BY-ZERO detected
    [Condition of type DIVISION-BY-ZERO]
@@ -663,8 +691,9 @@ The most frequently used restarts have the following shortcuts defined:
 -------------------------------------------------------------------------------
 DISPLAY BACKTRACE                                             *swank-backtrace*
 
-SLDB displays the backtrace for the calling frames, each line starting with
-the frame identifier, for example:
+The Swank debugger (SLDB) is presented in a separate dedicated buffer.
+Below the Restarts section SLDB displays the backtrace for the calling frames,
+each line starting with the frame identifier, for example:
 
 Backtrace:
   0: (CCL::%FIXNUM-TRUNCATE #<Unknown Arguments>)
@@ -676,8 +705,11 @@ Backtrace:
 
 
 If you press Enter in normal mode on a frame line then frame information
-with the local variable bindings for that frame are displayed at the bottom
-of the SLDB printout.
+with the local variable bindings and source location information for that frame
+are displayed in a fold. Pressing Enter again toggles the fold close/open.
+
+If you press Enter on a filename with source location information then Slimv
+opens the given file in a buffer at the specified location.
 
 Some commands have modified behaviour when used on a frame:
 
@@ -704,15 +736,15 @@ connected to the SWANK server.
 -------------------------------------------------------------------------------
 DESCRIBE SYMBOL                                                *swank-describe*
 
-When you hover your mouse over a symbol's name then the symbol description
+When you hover your mouse over a function's name then the function description
 is requested from SWANK and displayed in a tooltip, called balloonexpr in
 Vim terms. This functionality requires that Vim is compiled with the
 +balloon_eval feature enabled.
 
-If you don't have +balloon_eval then it is possible to select the
-Describe-Symbol menu item from the Slimv/Documentation submenu, or press
-the <Leader>s keyboard shortcut, which then displays the symbol description
-in the REPL buffer.
+If you don't have +balloon_eval or want to get the description for a general
+symbol then it is possible to select the Describe-Symbol menu item from the
+Slimv/Documentation submenu, or press the <Leader>s keyboard shortcut,
+which then displays the symbol description in the Vim message area.
 
 Note: the symbol description is not displayed when Slimv is not connected
 to the SWANK server.
@@ -738,7 +770,8 @@ SWANK server. In this case the Hyperspec database is used for symbol lookup.
 -------------------------------------------------------------------------------
 INSPECTOR                                                       *swank-inspect*
 
-The Enter key is remapped in normal mode for traversing the inspector output.
+The Swank Inspector is presented in a separate buffer. In the Inspect buffer
+the Enter key is remapped in normal mode for traversing the inspector output.
 
 When pressing Enter on the top line starting with 'Inspecting' then the
 currently inspected value is reloaded.
@@ -749,8 +782,10 @@ identifier) then nn-th action is called.
 When pressing Enter on a line starting with [nn] (where nn is the part
 identifier) then nn-th part is inspected.
 
-When pressing Enter on the last line starting with [<<] then the inspector
-is popped up one level.
+When pressing Enter on the last line starting with [<<] or pressing <Backspace>
+then the inspector is popped up one level, or if this was the topmost level
+then Slimv exits the Inspector.
+Pressing <Leader>q also exits the Inspector.
 
 
 If debugger is activated and the cursor is placed on a frame line in the
@@ -827,6 +862,7 @@ currently implemented in the Slimv SWANK client.
   swank:frame-source-location
   swank:fuzzy-completions
   swank:init-inspector
+  swank:inspect-frame-var
   swank:inspect-in-frame
   swank:inspect-nth-part
   swank:inspector-call-nth-action
@@ -1213,6 +1249,42 @@ FAQ                                                                 *slimv-faq*
 ===============================================================================
 CHANGE LOG                                                    *slimv-changelog*
 
+0.9.1  - Improved frame number identification in SLDB buffer.
+       - Moved frame source location above frame locals in SLDB.
+       - Fold frame source location if more than 2 lines.
+       - Inspect-In-Frame: preselect symbol under cursor only in variable lines.
+       - Inspect-In-Frame: open Inspector in the other window.
+       - Improved XRef file location parsing.
+       - Use current paragraph when no range set for Eval-Region and
+         Compile-Region.
+       - Added option g:slimv_sldb_wrap, do not set wrap for source buffers.
+       - Added Set-Breakpoint command mapped to <leader>B (thanks to
+         Philipp Marek), changed Profile-By-Substring mapping to <leader>P.
+       - Set Lisp keyword characters also in SLDB buffer.
+       - Bugfix: error messages at Connect-Server.
+       - Bugfix: error message for frame source location without filename.
+       - Bugfix: XRef output sometimes cut.
+
+0.9.0  - Separate buffers for SLDB and Inspector.
+       - Toggle frame information in SLDB buffer by pressing Enter.
+       - Look up source when pressing Enter on filename with location in SLDB.
+       - Added option g:swank_block_size to override Swank output buffer size
+         (thanks to stassats on #lisp and Philipp Marek).
+       - Removed old non-swank functionality.
+       - Removed option g:slimv_repl_open.
+       - Paredit: new mappings [[ and ]] for previous and next defun.
+       - Bugfix: various refresh problems (thanks to Philipp Marek).
+       - Bugfix: disable debug mode when reconnecting Swank (by Philipp Marek).
+       - Bugfix: display multi-line debug condition and frame source location,
+         quote characters in compile (by Philipp Marek).
+       - Bugfix: use proper SLDB level when invoking restart (by Philipp Marek).
+       - Bugfix: restore all lisp keyword characters in iskeyword.
+       - Bugfix: indentation of defgeneric.
+       - Bugfix: use proper filename and location when compiling defun or region.
+       - Bugfix: buffer corruption when re-triggering timer in insert mode.
+       - Bugfix: <End> moved cursor to the right edge of screen in REPL buffer
+         when virtualmode=all.
+
 0.8.6  - Handle cl:in-package, common-lisp:in-package (thanks to Philipp Marek).
        - Added option g:swank_host to allow connecting to remote Swank server.
        - Autodetection of Cake for Clojure (thanks to Chris Cahoon).
@@ -1508,7 +1580,8 @@ ISSUES, LIMITATIONS, KNOWN BUGS                                  *slimv-issues*
 - Vim register "s is used for all form selections, so its original content is
   destroyed.
 - Vim mark 's is used to mark the end of the REPL buffer, i.e. the beginning
-  of the "command line".
+  of the "command line", also the for the location of the current frame in
+  the SLDB buffer.
 - Needs Vim version 7.0 or above, because of the intensive use of lists.
 - Needs the same Python version that Vim is compiled against
 - It is not possible to run separate Lisp and Clojure REPL in the same
@@ -1519,8 +1592,8 @@ ISSUES, LIMITATIONS, KNOWN BUGS                                  *slimv-issues*
 TODO                                                               *slimv-todo*
 
 - Add missing SLIME functions to the SWANK client.
-- Separate SLDB/Inspector/etc buffers from the REPL buffer.
-- Allow connecting remote SWANK server (outside of localhost).
+- Continue separating other buffers (e.g. Threads) from the REPL buffer.
+- Allow connecting remote SWANK server (outside of localhost) via SSH.
 
 ===============================================================================
 CREDITS                                                         *slimv-credits*
