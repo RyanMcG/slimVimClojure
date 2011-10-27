@@ -1,7 +1,7 @@
 " slimv-clojure.vim:
 "               Clojure filetype plugin for Slimv
-" Version:      0.8.0
-" Last Change:  15 Mar 2011
+" Version:      0.9.2
+" Last Change:  20 Oct 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -10,22 +10,40 @@
 " =====================================================================
 "
 "  Load Once:
-if &cp || exists( 'g:slimv_clojure_loaded' )
+if exists("b:did_ftplugin")
     finish
 endif
 
+" ---------- Begin part loaded once ----------
+if !exists( 'g:slimv_clojure_loaded' )
+
 let g:slimv_clojure_loaded = 1
+
+" Transform filename so that it will not contain spaces
+function! s:TransformFilename( name )
+    if match( a:name, ' ' ) >= 0
+        return fnamemodify( a:name , ':8' )
+    else
+        return a:name
+    endif
+endfunction
 
 " Build a Clojure startup command by adding
 " all clojure*.jar files found to the classpath
 function! b:SlimvBuildStartCmd( lisps )
-    let cp = a:lisps[0]
+    let cp = s:TransformFilename( a:lisps[0] )
     let i = 1
     while i < len( a:lisps )
-        let cp = cp . ';' . a:lisps[i]
+        let cp = cp . ';' . s:TransformFilename( a:lisps[i] )
         let i = i + 1
     endwhile
-    return ['"java -cp ' . cp . ' clojure.main"', 'clojure']
+
+    " Try to find swank-clojure and add it to classpath
+    let swanks = split( globpath( &runtimepath, 'swank-clojure'), '\n' )
+    if len( swanks ) > 0
+        let cp = cp . ';' . s:TransformFilename( swanks[0] )
+    endif
+    return ['java -cp ' . cp . ' clojure.main', 'clojure']
 endfunction
 
 " Try to autodetect Clojure executable
@@ -34,6 +52,9 @@ function! b:SlimvAutodetect()
     " Firts try the most basic setup: everything in the path
     if executable( 'lein' )
         return ['"lein repl"', 'clojure']
+    endif
+    if executable( 'cake' )
+        return ['"cake repl"', 'clojure']
     endif
     if executable( 'clojure' )
         return ['clojure', 'clojure']
@@ -49,6 +70,12 @@ function! b:SlimvAutodetect()
         return b:SlimvBuildStartCmd( lisps )
     endif
 
+    " Check if Clojure is bundled with Slimv
+    let lisps = split( globpath( &runtimepath, 'swank-clojure/clojure*.jar'), '\n' )
+    if len( lisps ) > 0
+        return b:SlimvBuildStartCmd( lisps )
+    endif
+
     " Try to find Clojure in the PATH
     let path = substitute( $PATH, ';', ',', 'g' )
     let lisps = split( globpath( path, 'clojure*.jar' ), '\n' )
@@ -58,7 +85,7 @@ function! b:SlimvAutodetect()
 
     if g:slimv_windows
         " Try to find Clojure on the standard installation places
-        let lisps = split( globpath( 'c:/*clojure*', 'clojure*.jar' ), '\n' )
+        let lisps = split( globpath( 'c:/*clojure*,c:/*clojure*/lib', 'clojure*.jar' ), '\n' )
         if len( lisps ) > 0
             return b:SlimvBuildStartCmd( lisps )
         endif
@@ -87,9 +114,9 @@ function! b:SlimvImplementation()
     return 'clojure'
 endfunction
 
-" Filename for the REPL buffer file
-function! b:SlimvREPLFile()
-    return 'Slimv.REPL.clj'
+" Filetype specific initialization for the REPL buffer
+function! b:SlimvInitRepl()
+    set filetype=clojure
 endfunction
 
 " Lookup symbol in the list of Clojure Hyperspec symbol databases
@@ -121,7 +148,31 @@ function! b:SlimvHyperspecLookup( word, exact, all )
     return symbol
 endfunction
 
+" Implementation specific REPL initialization
+function! b:SlimvReplInit( lisp_version )
+    " Import functions commonly used in REPL but not present when not running in repl mode
+    if a:lisp_version[0:2] >= '1.3'
+        call SlimvSendSilent( ["(use '[clojure.repl :only (source apropos dir pst doc find-doc)])",
+        \                      "(use '[clojure.java.javadoc :only (javadoc)])",
+        \                      "(use '[clojure.pprint :only (pp pprint)])"] )
+    elseif a:lisp_version[0:2] >= '1.2'
+        call SlimvSendSilent( ["(use '[clojure.repl :only (source apropos)])",
+        \                      "(use '[clojure.java.javadoc :only (javadoc)])",
+        \                      "(use '[clojure.pprint :only (pp pprint)])"] )
+    endif
+endfunction
+
 " Source Slimv general part
-runtime ftplugin/**/lisp.vim
 runtime ftplugin/**/slimv.vim
+
+endif "!exists( 'g:slimv_lisp_loaded' )
+" ---------- End of part loaded once ----------
+
+runtime ftplugin/**/lisp.vim
+
+" Must be called for each lisp buffer
+call SlimvInitBuffer()
+
+" Don't load another plugin for this buffer
+let b:did_ftplugin = 1
 

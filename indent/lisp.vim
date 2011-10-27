@@ -1,5 +1,5 @@
-" clojure.vim:
-"               Clojure indent plugin for Slimv
+" lisp.vim:
+"               Lisp indent plugin for Slimv
 " Version:      0.9.2
 " Last Change:  21 Oct 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
@@ -13,8 +13,6 @@
 if exists("b:did_indent")
    finish
 endif
-
-runtime indent/**/lisp.vim
 
 setlocal nolisp
 setlocal autoindent

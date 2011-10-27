@@ -1,7 +1,7 @@
 " slimv-lisp.vim:
 "               Lisp filetype plugin for Slimv
-" Version:      0.8.0
-" Last Change:  07 Mar 2011
+" Version:      0.9.2
+" Last Change:  20 Oct 2011
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -10,9 +10,12 @@
 " =====================================================================
 "
 "  Load Once:
-if &cp || exists( 'g:slimv_lisp_loaded' )
+if exists("b:did_ftplugin")
     finish
 endif
+
+" ---------- Begin part loaded once ----------
+if !exists( 'g:slimv_lisp_loaded' )
 
 let g:slimv_lisp_loaded = 1
 
@@ -20,6 +23,10 @@ let g:slimv_lisp_loaded = 1
 " Returns list [Lisp executable, Lisp implementation]
 function! b:SlimvAutodetect()
     " Check the easy cases
+    if executable( 'sbcl' )
+        " Steel Bank Common Lisp
+        return ['sbcl', 'sbcl']
+    endif
     if executable( 'clisp' )
         " Common Lisp
         return ['clisp', 'clisp']
@@ -32,10 +39,6 @@ function! b:SlimvAutodetect()
         " Carnegie Mellon University Common Lisp
         return ['cmucl', 'cmu']
     endif
-    if executable( 'sbcl' )
-        " Steel Bank Common Lisp
-        return ['sbcl', 'sbcl']
-    endif
     if executable( 'ecl' )
         " Embeddable Common Lisp
         return ['ecl', 'ecl']
@@ -43,6 +46,22 @@ function! b:SlimvAutodetect()
     if executable( 'acl' )
         " Allegro Common Lisp
         return ['acl', 'allegro']
+    endif
+    if executable( 'mlisp' )
+        " Allegro Common Lisp
+        return ['mlisp', 'allegro']
+    endif
+    if executable( 'mlisp8' )
+        " Allegro Common Lisp
+        return ['mlisp8', 'allegro']
+    endif
+    if executable( 'alisp' )
+        " Allegro Common Lisp
+        return ['alisp', 'allegro']
+    endif
+    if executable( 'alisp8' )
+        " Allegro Common Lisp
+        return ['alisp8', 'allegro']
     endif
     if executable( 'lwl' )
         " LispWorks
@@ -75,6 +94,10 @@ function! b:SlimvAutodetect()
         if len( lisps ) > 0
             return [lisps[0], 'sbcl']
         endif
+        let lisps = split( globpath( 'c:/acl*,c:/Program Files/acl*,c:/Program Files/*lisp*/bin/acl*', '*lisp*.exe' ), '\n' )
+        if len( lisps ) > 0
+            return [lisps[0], 'allegro']
+        endif
         let lisps = split( globpath( 'c:/ecl*,c:/Program Files/ecl*', 'ecl.exe' ), '\n' )
         if len( lisps ) > 0
             return [lisps[0], 'ecl']
@@ -102,9 +125,9 @@ function! b:SlimvImplementation()
     return 'clisp'
 endfunction
 
-" Filename for the REPL buffer file
-function! b:SlimvREPLFile()
-    return 'Slimv.REPL.lisp'
+" Filetype specific initialization for the REPL buffer
+function! b:SlimvInitRepl()
+    set filetype=lisp
 endfunction
 
 " Lookup symbol in the list of Lisp Hyperspec symbol databases
@@ -138,4 +161,15 @@ endfunction
 
 " Source Slimv general part
 runtime ftplugin/**/slimv.vim
+
+endif "!exists( 'g:slimv_lisp_loaded' )
+" ---------- End of part loaded once ----------
+
+runtime ftplugin/**/lisp.vim
+
+" Must be called for each lisp buffer
+call SlimvInitBuffer()
+
+" Don't load another plugin for this buffer
+let b:did_ftplugin = 1
 

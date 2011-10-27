@@ -1,23 +1,23 @@
-*slimv.txt*                    Slimv                 Last Change: 24 Mar 2011
+*slimv.txt*                    Slimv                 Last Change: 26 Oct 2011
 
 Slimv                                                                  *slimv*
-                               Version 0.8.0
+                               Version 0.9.2
 
 The Superior Lisp Interaction Mode for Vim.
 This plugin is aimed to help Lisp development by interfacing between Vim and
 the Lisp REPL, similarly to Emacs/SLIME.
+Slimv is actually a SWANK (TCP server for Emacs) client.
 Slimv works on Windows, Linux, and Mac OS X, however the newly introduced
-paredit mode is operating system independent.
-The current version of Slimv contains a SWANK client. Please visit |swank.txt|
-for additional information.
+Paredit mode is operating system independent. Please visit |paredit.txt| for
+additional information on Paredit mode.
 
 |slimv-installation|         Installation
-|slimv-customization|        Customization
-|slimv-usage|                Usage
+|slimv-configuration|        Configuration
+|slimv-swank|                SWANK Features implemented in Slimv
 |slimv-repl|                 Lisp REPL inside Vim
 |slimv-clojure|              Clojure support
+|slimv-scheme|               Scheme support
 |slimv-package|              Package and Namespace handling
-|slimv-profiling|            Profiling
 |slimv-hyperspec|            Hyperspec Lookup and Completion
 |slimv-paredit|              Paredit mode
 |slimv-external|             External utilities
@@ -38,33 +38,38 @@ INSTALLATION                                               *slimv-installation*
 Prerequisites:
 
   Required components:
-  - Lisp (any console Common Lisp implementation should be OK) or
-    Clojure installed.
-  - Python 2.4 or later installed. Please note that due to a Popen bug in the
-    Cygwin Python implementation Cygwin users should install Windows Python,
-    which is autodetected by the script.
-
-  Recommended components:
-  - SWANK server is highly recommended. Please find details in |swank.txt|.
+  - Vim 7.0 or newer installed with Python feature enabled.
+    This can be verified by the :ver command, look for the +python string.
+    It is recommended to have also the +balloon_eval feature for displaying
+    symbol descriptions in tooltip.
+  - Python 2.4 or later installed.
+    Must be the same Python version that was Vim compiled against.
+    This can also be verified by the :ver command, look for the
+    -DDYNAMIC_PYTHON_DLL=\"pythonXX\" string, where XX is the required
+    Python version.
+  - Lisp or Clojure or MIT Scheme (Linux only) installed.
+    Any Lisp implementation is OK that has SLIME support.
 
   Optional components:
-  - The interrupt functionality needs the pywin32 extension on Windows, but
-    only when not using the SWANK server.
   - "Exuberant ctags" for tags file generation (if not bundled with Vim
     already). See |slimv-ctags|.
+  - Slimv also contains SLIME (in fact the SWANK server part of SLIME) and
+    Swank Clojure. If you intend to use your own version of SLIME, then you
+    need to have your own SWANK server installed.
+    For example Clojure users might consider installing Leiningen and run the
+    SWANK server via 'lein swank', or use Cake via 'cake swank'.
 
 To install the script:
 
   - Install all required components described above.
-  - Download the slimv.zip.
+  - Download slimv.zip.
   - Extract the zip archive into your vimfiles or runtime directory.
     See Vim help file |usr_05.txt| for details on adding a plugin.
     The archive contains the following files:
 
+       doc/paredit.txt
        doc/slimv.txt
        ftdetect/clojure.vim
-       ftplugin/metering.lisp
-       ftplugin/slimv.py
        ftplugin/slimv.vim
        ftplugin/slimv-clhs.vim
        ftplugin/slimv-cljapi.vim
@@ -72,22 +77,17 @@ To install the script:
        ftplugin/swank.py
        ftplugin/clojure/slimv-clojure.vim
        ftplugin/lisp/slimv-lisp.vim
+       ftplugin/scheme/slimv-scheme.vim
        indent/clojure.vim
+       indent/lisp.vim
        plugin/paredit.vim
+       slime/*
+       swank-clojure/*
        syntax/clojure/slimv-syntax-clojure.vim
+       syntax/scheme/slimv-syntax-scheme.vim
 
     You might already have an ftdetect/clojure.vim file if you already use
     another Clojure filetype plugin. In this case just keep the original file.
-    If you intend to use the script only for Lisp programming, then most of
-    the files may be skipped, in this case it is enough to copy the following
-    files:
-
-       doc/slimv.txt
-       ftplugin/metering.lisp
-       ftplugin/slimv.py
-       ftplugin/slimv.vim
-       ftplugin/slimv-clhs.vim
-       ftplugin/lisp/slimv-lisp.vim
 
   - Start Vim or goto an existing instance of Vim.
   - Execute the following command:
@@ -99,64 +99,32 @@ To install the script:
     This will generate all the help tags for any file located in the doc
     directory.
   - Enter path definitions into your vimrc (if the default values are not
-    valid for your Vim/Python/Lisp installation, which is highly probable).
-    See |slimv-customization| below on how to do this.
-  - On Linux some login shells (like fish) might be incompatible with the Vim
-    temporary file generation, which results in getting random E484 errors.
-    This is because Vim expects a POSIX-compliant shell and the problem might
-    occur in other Vim scripts as well.
-    One solution is to add a similar block to the top of .vimrc:
-
-        if $SHELL =~ 'bin/fish'
-            set shell=/bin/sh
-        endif
+    valid for your Vim/Python/Lisp installation).
+    See |slimv-configuration| below on how to do this.
 
 
 Uninstallation:
 
-  - Exit all Vim instances and exit from the REPL server terminal window.
+  - Exit all Vim instances and exit from the SWANK server.
   - Delete the files that were copied to the vimfiles directory during
-    installation:
-
-       doc/slimv.txt
-       ftdetect/clojure.vim
-       ftplugin/metering.*
-       ftplugin/slimv.py
-       ftplugin/slimv.vim
-       ftplugin/slimv-clhs.vim
-       ftplugin/slimv-cljapi.vim
-       ftplugin/slimv-javadoc.vim
-       ftplugin/swank.py
-       ftplugin/clojure/slimv-clojure.vim
-       ftplugin/lisp/slimv-lisp.vim
-       indent/clojure.vim
-       plugin/paredit.vim
-       syntax/clojure/slimv-syntax-clojure.vim
-
-    (Special note on metering.lisp: if the profiler was compiled, then the
-    compiled files should be deleted as well, hence the metering.* above.)
+    installation (see list of files above).
 
 
 ===============================================================================
-CUSTOMIZATION                                             *slimv-customization*
+CONFIGURATION                                             *slimv-configuration*
 
 |slimv-options|              Options
-|slimv-templates|            Templates
 |slimv-keyboard|             Keyboard mappings
 
 -------------------------------------------------------------------------------
-                                                                *slimv_options*
+                                                                *slimv-options*
 
 The list below contains an alphabetical collection of Slimv options.
 Below that list follows the detailed explanation on each option.
+For the Paredit options please visit |paredit-options|.
+For the Swank options plese visit |swank-configuration|.
 
-|g:paredit_matchlines|       Number of lines to look backward and forward
-                             when checking if the current form is balanced.
-
-|g:paredit_mode|             If nonzero, paredit mode is switched on.
-
-|g:paredit_shortmaps|        If nonzero, paredit is remapping some one-letter
-                             Vim commands that are not frequently used.
+|g:slimv_balloon|            Specifies if tooltips are on.
 
 |g:slimv_browser_cmd|        If nonempty, this command is used to open the
                              Common Lisp Hyperspec. 
@@ -176,18 +144,24 @@ Below that list follows the detailed explanation on each option.
 |g:slimv_cljapi_user_root|   Base URL for the user defined Clojure API
                              extension.
 
-|g:slimv_client|             The whole OS command to start the Slimv client.
-                             Used for advanced customization, like changing
-                             the terminal emulator to use for the Lisp REPL.
-
 |g:slimv_ctags|              OS command to generate tags file.
 
+|g:slimv_echolines|          Echo only this number of lines from the form
+                             being evaluated.
+
 |g:slimv_impl|               The Lisp implementation. Defaults to 'clisp'.
+
+|g:slimv_indent_maxlines|    Maximum number of lines searched backwards for
+                             indenting special forms
+
+|g:slimv_inspect_name|       Name of the Inspect buffer.
 
 |g:slimv_javadoc_root|       Base URL for the JavaDoc.
 
 |g:slimv_keybindings|        Predefined Slimv keybindings. Possible values:
                              1 = set #1, 2 = set #2, other = no keybindings
+
+|g:slimv_leader|             Custom <Leader> setting for Slimv.
 
 |g:slimv_lisp|               Path for the Lisp interpreter.
 
@@ -196,29 +170,40 @@ Below that list follows the detailed explanation on each option.
 |g:slimv_package|            If nonzero, Slimv package/namespace handling is
                              switched on.
 
-|g:slimv_port|               TCP/IP port number to use in the Slimv client-
-                             server communication.
-
 |g:slimv_python|             Path for the Python interpreter.
 
-|g:slimv_repl_dir|           Directory path for the Lisp REPL buffer file.
-
-|g:slimv_repl_file|          Filename without path for the REPL buffer file.
-
-|g:slimv_repl_open|          If nonzero, Slimv opens the Lisp REPL buffer
-                             inside Vim when the server is started.
+|g:slimv_repl_name|          Name of the REPL buffer.
 
 |g:slimv_repl_split|         Open the Lisp REPL buffer in a split window
                              or in a separate buffer.
 
+|g:slimv_repl_syntax|        Enable syntax coloring for the REPL buffer.
+
 |g:slimv_repl_wrap|          Set wrap mode for the REPL buffer.
 
-|g:slimv_swank|              Indicates the usage of the SWANK client.
-                             Please find additional SWANK related options
-                             in |swank.txt|.
+|g:slimv_simple_compl|       Use simple completion instead of fuzzy completion.
+
+|g:slimv_sldb_name|          Name of the SLDB buffer.
+
+|g:slimv_sldb_wrap|          Set wrap mode for the SLDB buffer.
+
+|g:slimv_swank_clojure|      Command used to start the Clojure SWANK server.
+
+|g:slimv_swank_cmd|          Command used to start the Lisp SWANK server.
+
+|g:slimv_swank_scheme|       Command used to start the Scheme SWANK server.
+
+|g:slimv_timeout|            Timeout defined for starting up or connecting
+                             to the SWANK server.
 
 |g:slimv_updatetime|         Alternative value for 'updatetime' during REPL
                              refresh.
+
+|g:swank_block_size|         SWANK connection output buffer size.
+
+|g:swank_host|               Host name or IP address of the SWANK server.
+
+|g:swank_port|               Port number of the SWANK server.
 
 
 Note: Most options require to restart the Vim session when modified.
@@ -260,82 +245,89 @@ implementation.
 Example:
     let g:slimv_impl = 'sbcl'
 
-                                                                 *g:slimv_port*
-The default port used by Slimv is 5151. If this port is used by another
-program then set this variable to a free port number.
-It is also possible to run multiple REPLs from multiple Vim processes, just
-set a different port number for each Vim instance.
-Example:
-    let g:slimv_port = 10101
+                                                            *g:slimv_swank_cmd*
+                                                        *g:slimv_swank_clojure*
+                                                         *g:slimv_swank_scheme*
+Slimv tries to autodetect your Python/Lisp/SWANK installation.
+If the location for the SWANK server is not identified by the script, or you
+want to use a different command for starting the SWANK server, then you may
+want to customize the g:slimv_swank_cmd (general) and g:slimv_swank_clojure
+(Clojure specific) and g:slimv_swank_scheme (Scheme specific) options in your
+.vimrc file.
+Enter a Vim command here that spawns a detached process that runs the SWANK
+server of your choice. It is important to use a Vim command here that returns
+immediately and does not wait for the termination of the detached process,
+so begin the command with !start on Windows...:
 
-There is a separate port definition in Slimv which sets the port number to
-use for the SWANK server, see |g:swank_port| for details.
+    let g:slimv_swank_cmd = '!start "c:\Program Files\Lisp Cabinet\bin\ccl\wx86cl.exe" -l "c:\Program Files\Lisp Cabinet\site\lisp\slime\start-swank.lisp"'
+    let g:slimv_swank_clojure = '!start "c:\clojurebox\swank-clojure\src\start-swank.bat"'
 
-                                                               *g:slimv_client*
-Note: Used only when SWANK client is not enabled.
+...and end the command with an & on Linux:
 
-You may want to use a shell frontend other then the default one (cmd.exe
-on Windows, xterm on Linux) or put additional command line parameters
-for starting the server.
-In this case you can omit the variables above and use g:slimv_client instead.
-This is the complete command that is used to start the client. If not set
-by the user, this is automatically built from the variables above.
+    let g:slimv_swank_cmd = '! xterm -e sbcl --load /usr/share/common-lisp/source/slime/start-swank.lisp &'
+    let g:slimv_swank_clojure = '! xterm -e lein swank &'
 
-The command format is the following (items in [] are optional):
-    <python> <slimv> [-p <port>] -r "<server_cmd>"
-Where:
-    <python>       is the command to start the Python interpreter
-    <slimv>        is the path of slimv.py
-    <port>         is the port number to use (if other than default)
-    <server_cmd>   is the command to start the server
+On OS X the following or similar command may be used (but sometimes the above
+Linux xterm command also works):
 
-The format of <server_cmd> is the following (please remember to enclose the
-whole command in double quotes, as this will be passed as one parameter
-to the client):
-    [<terminal>] <python> <slimv> -l <lisp> -s
-Where:
-    <terminal>     is the command to open a new terminal window
-    <python>       is the command to start the Python interpreter
-    <slimv>        is the path of slimv.py
-    <lisp>         is the command to start the Lisp REPL
-You can also pass the following shortcuts in <server_cmd>:
-    @p             equals <python>
-    @s             equals <slimv>
-    @@             use it if you need to insert an @ character
-    \"             use it to insert a " character
-So <server_cmd> can be rewritten in this shorter form:
-    [<terminal>] @p @s -l <lisp> -s
+    let g:slimv_swank_cmd = '!osascript -e "tell application \"Terminal\" to do script \"sbcl --load ~/.vim/slime/start-swank.lisp\""'
+    let g:slimv_swank_clojure = '!osascript -e "tell application \"Terminal\" to do script \"cake swank\""'
 
-The reason behind the duplication of the <python> and <slimv> part is that
-you may want to start the server/REPL in a shell frontend that needs
-special command line options. For example on Windows I highly recommend
-to use Console (http://sourceforge.net/projects/console/) which is greatly
-configurable and you also get usable select/copy/paste functions.
+These are examples only, the Lisp command and the path to the SWANK server
+may need to be changed in the command depending on the actual configuration.
 
-Note: Remember to escape with a \ all " characters that are supposed to be
-      inside a command line argument, otherwise the argument will be split
-      by the shell.
+It is also possible to run the SWANK server manually prior running Vim.
+Slimv detects if a SWANK server is running and connects to it at the first
+evaluation request.
 
-Example to start the Slimv server via Console on Windows:
+Note: It is recommended to pass
+    :dont-close t
+for the swank:create-server function call in the SWANK startup procedure.
+This makes a permanent SWANK server that listens continuously. Otherwise
+each time the SWANK connection is lost, the SWANK server needs to be
+restarted again.
+Some SWANK features (like Xref) require the load of the contributed modules,
+so it is recommended to pass
+    :load-contribs t
+for the swank-loader:init function call in the SWANK strartup procedure.
+Example startup script:
 
-  let g:slimv_client = 
-  \ 'python slimv.py -p 5152 -r "console -r \"/k @p @s -l clisp -s\""'
+(load (merge-pathnames "swank-loader.lisp" *load-truename*))
 
-So the server will be started as if we typed at the command line:
+(swank-loader:init :delete nil
+                   :reload nil
+                   :load-contribs t)
 
-  console -r "/k python slimv.py -l clisp -s"
+(swank:create-server :port 4005
+                     :coding-system "iso-latin-1-unix"
+                     :dont-close t)
 
-A similar situation is if you want to use a terminal program other than
-xterm on Linux (e.g. Konsole). A typical g:slimv_client setup can be on
-Linux for xterm:
 
-  let g:slimv_client =
-  \ 'python ~/.vim/plugin/slimv.py -r "xterm -T Slimv -e @p @s -l clisp -s"'
+                                                           *g:swank_block_size*
+By default the SWANK server connection output buffer size is 4 or 8 kbytes.
+All the data sent by the SWANK server is divided into this size blocks, so
+if the SWANK server is sending large amount of data then this may result in
+high number of data blocks sent, which may slow down Slimv. For greater
+performance you may want to increase the block size, e.g. to 64 kbytes:
+    let g:swank_block_size = 65536
 
-And this can be for Konsole:
+                                                                 *g:swank_host*
+Host name or IP address of the SWANK server. Default value is 'localhost'.
+The SWANK server may run on a remote machine, but currently only unencrypted
+plain socket communication is supported, no SSH or whatsoever.
+Please note that if the SWANK server is on a remote machine then Slimv is
+unable to start it, so you need to run the SWANK server manually.
 
-  let g:slimv_client =
-  \ 'python ~/.vim/plugin/slimv.py -r "konsole -T Slimv -e @p @s -l clisp -s"'
+                                                                 *g:swank_port*
+The SWANK server is connected to port 4005 by default. This can be changed
+using the g:swank_port option.
+
+                                                              *g:slimv_timeout*
+There is a 20 second timeout defined for starting up or connecting to the
+SWANK server. This timeout can be changed via the g:slimv_timeout option.
+Please note that the very first startup of the SWANK server may take more time
+than the subsequent startups, so it is not recommended to make this timeout
+too low.
 
                                                                 *g:slimv_ctags*
 It is possible to generate tags file from within Vim. By default Slimv assumes
@@ -348,30 +340,28 @@ The default ctags command is:
   "ctags.exe -a --language-force=lisp *.lisp *.clj"
 
                                                           *g:slimv_keybindings*
-Defines the keybinding set used by Slimv. Value 0 means no keybinding at all.
+Defines the keybinding set used by Slimv.
+Value 0 means no keybinding at all.
 Value 1 defines the short keybinding with one-key bindings (after <Leader>).
+        Example: Eval-Defun is mapped to ,d
 Value 2 defines the easy keybinding with two-key bindings (after <Leader>).
+        Example: Eval-Defun is mapped to ,ed
 Other values mean no predefined keybinding is wanted.
-The <Leader> is set to ',' by default. 
+<Leader> is set to "," by default in Slimv.
+
+                                                               *g:slimv_leader*
+This option allows a custom <Leader> setting for the Slimv keybindings.
+By default it has the same value as |mapleader|. If neither g:slimv_leader nor
+mapleader are defined then the default <Leader> is "," in Slimv.
+Example:
+    let g:slimv_leader = '\'
+If this is set in the .vimrc then Eval-Defun will be mapped to \d instead of ,d.
+
+There is a separate |g:paredit_leader| option for the Paredit keybindings.
 
                                                                  *g:slimv_menu*
 If nonzero then the Slimv menu is added to the end of the global menu.
 Also the Slimv menu can be shown by pressing <Leader>, (defaults to ,,).
-
-                                                         *g:paredit_matchlines*
-Number of lines to look backward and forward when checking if the current
-top level form is balanced in paredit mode. Default is 100.
-
-                                                               *g:paredit_mode*
-If nonzero then paredit mode is switched on, i.e. Slimv tries to keep the
-balanced state of parens. See |g:slimv-paredit|.
-
-                                                          *g:paredit_shortmaps*
-If nonzero, paredit is remapping some one-letter normal mode Vim commands that
-are not frequently used. These are <, >, J, O, W, S. The original function of
-these maps then can be reached via the <Leader> prefix (which is the ","
-character by default in Slimv).
-Otherwise these paredit functions can be reached via the <Leader> prefix.
 
                                                           *g:slimv_browser_cmd*
 Specifies the command to start the browser in order to display the Common Lisp
@@ -381,45 +371,36 @@ This option is empty by default, which means that the command associated with
 the .html extension (on Windows) or returned by the Python webbrowser package
 (on Linux) is used to start the browser.
 
-                                                             *g:slimv_repl_dir*
-Directory path for the Lisp REPL buffer file. By default this is a directory
-for temporary files, something like /tmp/ on Linux or
-"C:\Documents and Settings\Username\Local Settings\Temp\" on Windows.
-The directory name must end with the pathname separator (/ or \).
-See also |g:slimv_repl_file|.
+                                                            *g:slimv_repl_name*
+Name of the REPL buffer. Default is 'REPL'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ REPL', '\#REPL\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
 
-                                                            *g:slimv_repl_file*
-The Lisp REPL output is written to a temporary file by the Slimv server.
-|g:slimv_repl_file| defines the filename part of the REPL output file without
-the directory path. The complete REPL filename is built from
-|g:slimv_repl_dir| and |g:slimv_repl_file|.
+                                                            *g:slimv_sldb_name*
+Name of the SLDB buffer. Default is 'SLDB'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ Debugger', '\#SLDB\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
 
-                                                            *g:slimv_repl_open*
-Slimv opens the Lisp REPL buffer inside Vim by default when the Slimv server
-is started, so there exist actually two REPL-s with the same contents:
-one inside a Vim buffer and another one as a separate terminal window.
-The reason behind this is that the simulation is not perfect, which is caused
-by the lack of asynchronous update possibilities in Vim. Sometimes the REPL
-buffer is not perfectly updated, this is the case for example when a Lisp
-program is running too long and it has infrequent outputs only.
-Slimv refreshes the REPL buffer at every keystroke or when the user doesn't
-press a key for the time specified with 'updatetime'. It is also possible
-to manually refresh the REPL buffer. The default value for 'updatetime' is
-4 secs (=4000 ms), in cases when more precise refreshing is needed you can
-lower the 'updatetime' option, e.g. to one second (=1000 ms):
-    set updatetime=1000
-However, it is not recommended to set this to a much lower value.
-Optionally one may check the output of the separate REPL window.
-The |g:slimv_repl_open| = 0 option can be used to disable the built-in REPL
-buffer, so that only the separate REPL window is opened.
+                                                         *g:slimv_inspect_name*
+Name of the Inspect buffer. Default is 'INSPECT'. Space and some other special
+characters need to be escaped (e.g. 'Slimv\ Incpector', '\#INSPECT\#').
+Not all special characters are allowed, e.g. '*' does not work in Windows.
 
                                                            *g:slimv_repl_split*
 Open the Lisp REPL buffer in a split window or in a separate buffer in Vim.
-Used only when |g:slimv_repl_open| is nonzero.
 The default is to use split window. If you prefer having REPL being in a hidden
 buffer then set this option to zero. This way the REPL buffer will be opened
 at the first evaluation, but any subsequent evaluation will be performed
 silently, with the REPL buffer kept hidden.
+
+It is also possible to define the desired split direction. The following
+values may be used for |g:slimv_repl_split|:
+
+    0: no split
+    1: horizontal split above (default)
+    2: horizontal split below
+    3: vertical split left
+    4: vertical split right
 
                                                            *g:slimv_updatetime*
 The REPL buffer is refreshed at every keystroke or when the user doesn't press
@@ -436,6 +417,17 @@ The default value is 200 (=0.2 sec).
 If nonzero then Slimv package/namespace handling is switched on. Please find
 details in the |slimv-package| section.
 
+                                                          *g:slimv_repl_syntax*
+Enables syntax highlighting for the REPL buffer. Switched off by default for
+two reasons:
+  1. The REPL buffer also contains the REPL output, which is generally not
+     related to s-expressions, therefore may confuse syntax coloring.
+  2. REPL output may contain very long lines, which significantly slows down
+     syntax coloring in Vim. If you really want to enable syntax highlighting
+     for the REPL buffer, then it is recommended to adjust the |synmaxcol|
+     parameter to a relatively low value in order to increase syntax coloring
+     speed.
+
                                                             *g:slimv_repl_wrap*
 Set wrap mode for the REPL buffer, which means the lines longer than the
 window width will not be hidden to the right. Instead they will be continued
@@ -444,6 +436,30 @@ This is the default behaviour as it is how regular REPL windows work. This
 mode also enables keybindings for cursor movements, so that an <Up> keypress
 will move the cursor one line on the display and not one line in the document.
 
+                                                            *g:slimv_sldb_wrap*
+Set wrap mode for the SLDB buffer, which means the lines longer than the
+window width will not be hidden to the right. Instead they will be continued
+in the next display line. Disabled by default.
+
+                                                            *g:slimv_echolines*
+If a long form is evaluated then echo only this number of lines from the
+beginning of the form. This option prevents filling the REPL buffer with
+mostly unnecessary information. Closing parens are added to the end even if
+the end of the form is not echoed, so paren balance is kept.
+If this option is set to zero then no line is echoed at all, if set to -1
+then all lines are always echoed.
+
+                                                      *g:slimv_indent_maxlines*
+Maximum number of lines searched backwards for indenting special forms, like
+flet, labels, macrolet. Setting it to a high value may slow down indenting.
+
+                                                              *g:slimv_balloon*
+Specifies if describe tooltips are on (see |swank-describe|).
+
+                                                         *g:slimv_simple_compl*
+If set to 1, swank:simple-completion is used. By default the fuzzy completion
+is active, so that "mvb<TAB>" expands to "multiple-value-bind"
+(see |swank-completions|).
 
                                                             *g:slimv_clhs_root*
                                                           *g:slimv_cljapi_root*
@@ -481,126 +497,18 @@ Example:
 Remember to insert a backslash at the beginning of each additional line of a
 multi-line Vim command.
 
-
--------------------------------------------------------------------------------
-                                                              *slimv_templates*
-
-Many Slimv commands are performed by creating a special Lisp form from the
-selected symbol (or list) and send it to the REPL for execution.
-Slimv defines various templates to build these special Lisp forms.
-You can override them to suit your needs. Use %1 for substituting the selected
-symbol's name or the selected list.
-Here follows a list of the templates defined in Slimv.
-
-                                                      *g:slimv_template_pprint*
-Lisp form built when issuing the 'Pprint' command.
-Example:
-    let g:slimv_template_pprint = '(dolist (o %1)(pprint o))'
-
-                                                    *g:slimv_template_undefine*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'Undefine' command.
-Example:
-    let g:slimv_template_undefine = '(fmakunbound (read-from-string "%1"))'
-
-                                                    *g:slimv_template_describe*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'Describe' command.
-Example:
-    let g:slimv_template_describe = '(describe (read-from-string "%1"))'
-
-                                                       *g:slimv_template_trace*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'Trace' command.
-Example:
-    let g:slimv_template_trace = "(trace %1)"
-
-                                                     *g:slimv_template_untrace*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'Untrace' command.
-Example:
-    let g:slimv_template_untrace = "(untrace %1)"
-
-                                                     *g:slimv_template_profile*
-Lisp form built when issuing the 'Profile' command.
-Example:
-    let g:slimv_template_profile = "(mon:monitor %1)"
-
-                                                   *g:slimv_template_unprofile*
-Lisp form built when issuing the 'Unprofile' command.
-Example:
-    let g:slimv_template_unprofile = "(mon:unmonitor %1)"
-
-                                               *g:slimv_template_unprofile_all*
-Lisp form built when issuing the 'Unprofile All' command.
-Example:
-    let g:slimv_template_unprofile_all = "(mon:unmonitor)"
-
-                                               *g:slimv_template_show_profiled*
-Lisp form built when issuing the 'Show Profiled' command.
-Example:
-    let g:slimv_template_show_profiled = "(pprint mon:*monitored-functions*)"
-
-                                              *g:slimv_template_profile_report*
-Lisp form built when issuing the 'Profile Report' command.
-Example:
-    let g:slimv_template_profile_report = "(mon:report-monitoring)"
-
-                                               *g:slimv_template_profile_reset*
-Lisp form built when issuing the 'Profile Reset' command.
-Example:
-    let g:slimv_template_profile_reset = "(mon:reset-all-monitoring)"
-
-                                                 *g:slimv_template_disassemble*
-Lisp form built when issuing the 'disassemble' command.
-Example:
-    let g:slimv_template_disassemble = "(disassemble #'%1)"
-
-                                                     *g:slimv_template_inspect*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'inspect' command.
-Example:
-    let g:slimv_template_inspect = "(inspect %1)"
-
                                                      *g:slimv_template_apropos*
 Lisp form built when issuing the 'apropos' command.
 Example:
     let g:slimv_template_apropos = '(apropos "%1")'
 
-                                                 *g:slimv_template_macroexpand*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'macroexpand-1' command, after "defmacro"
-string is replaced with "macroexpand-1".
-Example:
-    let g:slimv_template_macroexpand = '(pprint %1)'
-
-                                             *g:slimv_template_macroexpand_all*
-Note: Used only when SWANK client is not enabled.
-
-Lisp form built when issuing the 'macroexpand-all' command, after "defmacro"
-string is replaced with "macroexpand".
-Example:
-    let g:slimv_template_macroexpand_all = '(pprint %1)'
-
-                                                *g:slimv_template_compile_file*
-Lisp form built when issuing the 'compile-file' command.
-Example:
-    let g:slimv_template_compile_file = '(compile-file "%1")'
-
-
 -------------------------------------------------------------------------------
-                                                               *slimv_keyboard*
+                                                               *slimv-keyboard*
 
 The default keybindings (|g:slimv_keybindings|=1) and another easy to remember
 built-in keybinding set (|g:slimv_keybindings|=2) for Slimv are the following.
 Please note that the leading ',' key below refers to <Leader>, which is set
-by Slimv to ',' by default.
+by Slimv to ',' by default (see |g:slimv_leader|).
 In the graphical menu the currently active keyboard shortcuts are displayed
 beside the menu item names, so one can refer to the GUI menu as a quick
 reference for the keymappings.
@@ -613,27 +521,36 @@ sequence, then you may want to fine tune these Vim options:
     ---------------------------------------------------
     ,,      ,,       Slimv Menu
 
-    Edit commands:
-    <C-X>0           Close-Form (Insert mode)
-    <C-X><C-O>       Complete-Symbol (Insert mode)
+    Edit commands (Insert mode):
+    <C-X>0           Close Form
+    <Tab>            Complete Symbol
+    <Space>          Function Arglist
+
+    Edit commands (Normal mode):
+    ,)      ,tc      Close Form
     ,(      ,(t      Paredit Toggle
 
     Evaluation commands:
     ,d      ,ed      Eval Defun (current top level form)
-    ,e      ,ee      Eval Last Expression (current subform)
-    ,E      ,ep      Pprint Eval Last Expression
+    ,e      ,ee      Eval Current Expression (current subform)
     ,r      ,er      Eval Region (visual selection)
     ,b      ,eb      Eval Buffer
-    ,v      ,ei      Interactive Eval
+    ,v      ,ei      Interactive Eval (evaluates in frame when in SLDB)
     ,u      ,eu      Undefine Function
 
     Debug commands:
     ,1      ,m1      Macroexpand-1
-    ,m      ,ma      Macroexpand
-    ,t      ,dt      Trace
-    ,T      ,du      Untrace
+    ,m      ,ma      Macroexpand All
+    ,t      ,dt      Toggle Trace
+    ,T      ,du      Untrace All
     ,l      ,dd      Disassemble
-    ,i      ,di      Inspect
+    ,i      ,di      Inspect (inspects in frame when in SLDB)
+    ,a      ,da      Abort
+    ,q      ,dq      Quit to Toplevel
+    ,n      ,dc      Continue
+    ,H      ,dl      List Threads
+    ,K      ,dk      Kill Thread
+    ,G      ,dg      Debug Thread
 
     Compile commands:
     ,D      ,cd      Compile Defun
@@ -641,10 +558,19 @@ sequence, then you may want to fine tune these Vim options:
     ,F      ,cf      Compile File
     ,R      ,cr      Compile Region
 
+    Cross Reference commands
+    ,xc     ,xc      Who Calls
+    ,xr     ,xr      Who References
+    ,xs     ,xs      Who Sets
+    ,xb     ,xb      Who Binds
+    ,xm     ,xm      Who Macroexpands
+    ,xp     ,xp      Who Specializes
+    ,xl     ,xl      List Callers
+    ,xe     ,xe      List Callees
+
     Profile commands:
-    ,O      ,pl      Load Profiler
-    ,p      ,pp      Profile
-    ,P      ,pu      Unprofile
+    ,p      ,pp      Toggle Profile
+    ,B      ,pb      Profile by Substring
     ,U      ,pa      Unprofile All
     ,?      ,ps      Show Profiled
     ,o      ,pr      Profile Report
@@ -652,7 +578,7 @@ sequence, then you may want to fine tune these Vim options:
 
     Documentation commands:
     ,s      ,ds      Describe Symbol
-    ,a      ,da      Apropos
+    ,A      ,da      Apropos
     ,h      ,dh      Hyperspec
     ,]      ,dt      Generate Tags
 
@@ -668,6 +594,7 @@ sequence, then you may want to fine tune these Vim options:
     REPL menu commands:
     ,.      ,rs      Send Input
     ,/      ,ro      Close and Send Input
+    ,g      ,rp      Set Package
     <C-C>   <C-C>    Interrupt Lisp Process
     ,<Up>   ,rp      Previous Input
     ,<Down> ,rn      Next Input
@@ -680,39 +607,299 @@ client, please find details in |swank.txt|.
 
 
 ===============================================================================
-USAGE                                                             *slimv-usage*
+SWANK FEATURES                                                    *slimv-swank*
 
-After proper installation start Vim and load a *.lisp source file into a
-buffer. When the first Slimv command is entered (either from the menu or
-via keyboard shortcut or entering a :call Slimv...() at the Vim command line)
-then Slimv checks if the server/REPL runs and starts it if nedeed.
-When the server is running, the Slimv commands send the appropriate Lisp
-forms to the server/REPL for processing. That's it.
+The following major SLIME (SWANK) features are implemented in Slimv.
+For a complete reference of SWANK functions implemented see |swank-functions|.
 
-All you need to know then is the list of possible Slimv commands, how to
-enter them and under what conditions.
+|swank-eval|                 Evaluation
+|swank-interrupt|            Interrupt Lisp process
+|swank-restarts|             SLDB: Invoke restarts
+|swank-backtrace|            SLDB: Display backtrace with locals
+|swank-arglist|              Function argument list in status line
+|swank-describe|             Describe symbol in tooltip
+|swank-completions|          List of possible symbol completions
+|swank-inspect|              Inspector
+|swank-trace|                Trace function
+|swank-profile|              Profiler
+|swank-xref|                 Cross Reference
+|swank-quickfix|             Compiler errors in quickfix list
+|swank-functions|            SWANK functions implemented
 
-It is possible to interrupt a running Lisp program by pressing Ctrl-C,
-at least in some Lisp implementations, like CLISP (does not work for example
-with SBCL).
-In Clojure Ctrl-C exits the REPL by default, but it is possible to change this
-behaviour via the add-break-thread! function:
-    user=> (use 'clojure.contrib.repl-utils)
-    nil
-    user=> (add-break-thread!)
-Then pressing Ctrl-C results in a SIGINT exception in the current thread.
-This may however make bad things to your JVM, so use it with caution.
+-------------------------------------------------------------------------------
+EVALUATION                                                         *swank-eval*
 
-To end the Lisp session press EOF (Ctrl-D on Linux, Ctrl-Z on Windows)
-in the Lisp REPL window. After exiting the REPL it is possible to open
-a new one from Vim the same way as before.
+There are various methods for evaluating an s-expression in the SWANK server.
+It is possible to eval the current top level form, the current subform, the
+visually selected area, or the whole buffer. Consult the "Evaluation commands"
+section in |slimv-keyboard| for the possible functions with their respective
+keyboard shortcuts.
+
+
+If debugger is activated and the cursor is placed on a frame line in the
+Backtrace section, then the Interactive-Eval command evaluates expressions
+in the scope of the given frame ("eval-in-frame").
+
+
+-------------------------------------------------------------------------------
+INTERRUPT LISP PROCESS                                        *swank-interrupt*
+
+It is possible to interrupt a running Lisp or Clojure process by selecting
+the Interrupt-Lisp-Process menu item in the REPL or Slimv/Repl submenu,
+or by pressing the keyboard shortcut <Leader>i.
+It is also possible to map the Ctrl-C shortcut in normal mode to perform the
+interrupt, but this may interfere with the "Copy to clipboard" function
+especially on Windows. Here is how to do it:
+
+    noremap  <silent> <C-C>      :call SlimvInterrupt()<CR> 
+
+When a Lisp process is interrupted, we are dropped in SLDB (SLime DeBugger)
+and the list of restarts (see |swank-restarts|) and calling frame stack
+(see |swank-backtrace|) is displayed.
+It is possible to inspect variables (see |swank-inspect|) and continue
+or break program execution by selecting the appropriate restart.
+It is also possible to change the value of variables or redefine functions
+before resuming execution.
+
+
+-------------------------------------------------------------------------------
+INVOKE RESTARTS                                                *swank-restarts*
+
+In case of an error or when the Lisp process is interrupted Slimv presents
+the Swank debugger (SLDB) buffer. SLDB displays the condition and the list of
+possible restarts, each line startin with the restart identifier, for example:
+
+DIVISION-BY-ZERO detected
+   [Condition of type DIVISION-BY-ZERO]
+
+Restarts:
+  0: [RETRY] Retry SLIME REPL evaluation request.
+  1: [*ABORT] Return to SLIME's top level.
+  2: [ABORT-BREAK] Reset this thread
+  3: [ABORT] Kill this thread
+
+
+If you press Enter in normal mode on a restart line then the given restart
+is invoked.
+The most frequently used restarts have the following shortcuts defined:
+
+    ,a      Abort
+    ,q      Quit To Toplevel
+    ,n      Continue
+
+
+-------------------------------------------------------------------------------
+DISPLAY BACKTRACE                                             *swank-backtrace*
+
+The Swank debugger (SLDB) is presented in a separate dedicated buffer.
+Below the Restarts section SLDB displays the backtrace for the calling frames,
+each line starting with the frame identifier, for example:
+
+Backtrace:
+  0: (CCL::%FIXNUM-TRUNCATE #<Unknown Arguments>)
+  1: (/ 1 0)
+  2: (NIL #<Unknown Arguments>)
+  3: (CCL::CALL-CHECK-REGS / 1 0)
+  4: (CCL::CHEAP-EVAL (/ 1 0))
+  5: (SWANK::EVAL-REGION "(/ 1 0)")
+
+
+If you press Enter in normal mode on a frame line then frame information
+with the local variable bindings and source location information for that frame
+are displayed in a fold. Pressing Enter again toggles the fold close/open.
+
+If you press Enter on a filename with source location information then Slimv
+opens the given file in a buffer at the specified location.
+
+Some commands have modified behaviour when used on a frame:
+
+    Interactive-Eval         Evaluates expressions in the scope of the frame.
+
+    Inspect                  Inspects objects within the scope of the frame.
+
+
+-------------------------------------------------------------------------------
+FUNCTION ARGUMENT LIST                                          *swank-arglist*
+
+When entering an s-expression in insert mode, each time a space is pressed
+after a non-whitespace character, then SWANK is requested for the function
+argument list for the current function. If the function is known by SWANK
+then the function prototype is displayed in the status line. The arglist is
+condensed in order to fit the status line, so for functions with many
+arguments the whole definition may not be visible. In this case use the
+Describe function for displaying the full function definition.
+
+Note: the function argument list is not displayed when Slimv is not
+connected to the SWANK server.
+
+
+-------------------------------------------------------------------------------
+DESCRIBE SYMBOL                                                *swank-describe*
+
+When you hover your mouse over a function's name then the function description
+is requested from SWANK and displayed in a tooltip, called balloonexpr in
+Vim terms. This functionality requires that Vim is compiled with the
++balloon_eval feature enabled.
+
+If you don't have +balloon_eval or want to get the description for a general
+symbol then it is possible to select the Describe-Symbol menu item from the
+Slimv/Documentation submenu, or press the <Leader>s keyboard shortcut,
+which then displays the symbol description in the Vim message area.
+
+Note: the symbol description is not displayed when Slimv is not connected
+to the SWANK server.
+
+
+-------------------------------------------------------------------------------
+COMPLETIONS                                                 *swank-completions*
+
+The Vim omni-completion function requests the possible completions for the
+symbol currently being entered from the SWANK server. The completion list
+is displayed in a popup menu.
+The keyboard shortcut for completion is <Tab>. This brings up the completions
+popup menu if there are multiple choices. In the popup menu subsequent <Tab>
+keypresses select the next possible completion.
+
+Option |g:slimv_simple_compl| determines whether simple or fuzzy completion
+is used. Default is fuzzy completion.
+
+Note: completions are not displayed when Slimv is not connected to the
+SWANK server. In this case the Hyperspec database is used for symbol lookup.
+
+
+-------------------------------------------------------------------------------
+INSPECTOR                                                       *swank-inspect*
+
+The Swank Inspector is presented in a separate buffer. In the Inspect buffer
+the Enter key is remapped in normal mode for traversing the inspector output.
+
+When pressing Enter on the top line starting with 'Inspecting' then the
+currently inspected value is reloaded.
+
+When pressing Enter on a line starting with <nn> (where nn is the action
+identifier) then nn-th action is called.
+
+When pressing Enter on a line starting with [nn] (where nn is the part
+identifier) then nn-th part is inspected.
+
+When pressing Enter on the last line starting with [<<] or pressing <Backspace>
+then the inspector is popped up one level, or if this was the topmost level
+then Slimv exits the Inspector.
+Pressing <Leader>q also exits the Inspector.
+
+
+If debugger is activated and the cursor is placed on a frame line in the
+Backtrace section, then the Inspect command inspects objects in the given
+frame. It means that it is possible to examine the value of local variables
+within the scope of the given frame ("inspect-in-frame").
+
+
+-------------------------------------------------------------------------------
+TRACE                                                             *swank-trace*
+
+It is possible to tell the SWANK server to trace or untrace functions.
+There are some subtle differences in the trace handling with or
+without SWANK.
+
+For the trace handling without SWANK please check options
+|g:slimv_template_trace| and |g:slimv_template_untrace|.
+
+When using the SWANK server the Trace command toggles tracing for the
+selected function. In this case there is no Untrace command, but there is
+an Untrace-All command, which completely switches off tracing.
+This complies with the SWANK tracing functionality.
+
+
+-------------------------------------------------------------------------------
+PROFILER                                                        *swank-profile*
+
+Slimv supports SLIME's profiler. It is possible to toggle profiling on a
+function, on a set of functions whose name contains a given substring, or
+unprofile all functions. You may query the profiler for the list of profiled
+functions. After the profiling session it is possible to display the profiler
+report. Upon selecting Reset all counters are cleared, so that a new
+profiling session may be started.
+
+
+-------------------------------------------------------------------------------
+CROSS REFERENCE                                                    *swank-xref*
+
+SLIME's cross reference functionality can be used to list the functions
+calling a specific function, the list of functions called from a specific
+function, and other variable, macro, etc. references.
+Please note that not all Lisp implementations support the xref functionality.
+
+
+-------------------------------------------------------------------------------
+QUICKFIX                                                       *swank-quickfix*
+
+The compiler error messages are fed into Vim's quickfix list, as well as
+printed in the REPL buffer. Enter the :cw command to open the quickfix window.
+Use :cn and :cp to jump to the next and previous error location, use :cr to
+rewind to the first error.
+Consult |quickfix| for details on using the quickfix functionality.
+
+
+-------------------------------------------------------------------------------
+SWANK FUNCTIONS                                               *swank-functions*
+
+This section contains a reference for the Emacs/SLIME/SWANK functions
+currently implemented in the Slimv SWANK client.
+
+  :emacs-interrupt
+  :emacs-pong
+  :emacs-return-string
+  :indentation-update
+  swank:compile-file-for-emacs
+  swank:compile-string-for-emacs
+  swank:connection-info
+  swank:create-repl
+  swank:debug-nth-thread
+  swank:describe-function
+  swank:disassemble-form
+  swank:eval-string-in-frame
+  swank:frame-locals-and-catch-tags
+  swank:frame-source-location
+  swank:fuzzy-completions
+  swank:init-inspector
+  swank:inspect-frame-var
+  swank:inspect-in-frame
+  swank:inspect-nth-part
+  swank:inspector-call-nth-action
+  swank:inspector-pop
+  swank:invoke-nth-restart-for-emacs
+  swank:kill-nth-thread
+  swank:list-threads
+  swank:listener-eval
+  swank:load-file
+  swank:operator-arglist
+  swank:profile-by-substring
+  swank:profile-report
+  swank:profile-reset
+  swank:profiled-functions
+  swank:quit-inspector
+  swank:set-package
+  swank:simple-completions
+  swank:sldb-abort
+  swank:sldb-continue
+  swank:swank-macroexpand-1
+  swank:swank-macroexpand-all
+  swank:swank-require
+  swank:swank-toggle-trace
+  swank:throw-to-toplevel
+  swank:toggle-profile-fdefinition
+  swank:undefine-function
+  swank:unprofile-all
+  swank:untrace-all
+  swank:xref
+  swank-backend:frame-call
 
 
 ===============================================================================
 LISP REPL                                                          *slimv-repl*
 
 The Lisp REPL is displayed as a separate terminal window and also inside a
-Vim buffer. The Lisp REPL buffer is opened when the Slimv server is started.
+Vim buffer. The Lisp REPL buffer is opened when the SWANK server is started.
 The REPL buffer is a more or less regular Vim buffer, all Vim keybindings and
 commands can be used here as well.
 
@@ -762,7 +949,7 @@ CLOJURE SUPPORT                                                 *slimv-clojure*
 
 Vim has a built-in support for Lisp, however it has no Clojure support by
 default. As Clojure is a Lisp dialect, Slimv simply reuses Vim's Lisp syntax
-and indent plugins for Clojure. It this does not suit your needs, then it is
+and indent plugins for Clojure. If this does not suit your needs, then it is
 possible to download and install a separate Clojure plugin parallel to Slimv.
 
 In order to launch the Clojure REPL the variable |g:slimv_lisp| must be
@@ -782,6 +969,18 @@ Remember to escape the backslashes:
 
 
 ===============================================================================
+SCHEME SUPPORT                                                   *slimv-scheme*
+
+Slimv has a limited support for Scheme: currently only MIT Scheme is supported
+via the SWANK client, using a modified version of swank-mit-scheme.scm in the
+slime/contrib directory.
+The Scheme SWANK server also requires the 'netcat' program to create sockets.
+Please read information about the implementation details in the file header of
+swank-mit-scheme.scm.
+There is no Hyperspec information for Scheme at the moment.
+
+
+===============================================================================
 PACKAGE AND NAMESPACE HANDLING                                  *slimv-package*
 
 Slimv has a basic support for handling Lisp packages and Clojure namespaces.
@@ -793,43 +992,6 @@ multiple sources) that use multiple packages/namespaces, each time the correct
 package/namespace will be used.
 The package/namespace handling can be switched off via the |g:slimv_package|
 option.
-
-
-===============================================================================
-PROFILING                                                     *slimv-profiling*
-
-Slimv is capable of utilizing SBCL's built-in profiler, and also the same
-monitoring/profiling package (metering.lisp) that is used by SLIME, at least
-for CLISP and maybe for some other Common Lisp implementations.
-Fortunately SLIME's metering.lisp is in public domain, so its current version
-(at the time of writing this document) is included in Slimv.
-The most recent version can be extracted from the main directory of SLIME.
-SLIME can be downloaded from http://common-lisp.net/project/slime/
-
-SBCL's profiler is ready to use by just starting the Lisp REPL.
-In order to use SLIME's profiler with CLISP it first must be compiled and
-loaded into a running REPL. Perform this with the 'Load-Profiler' command.
-If the compilation was successful then Slimv is ready to profile.
-
-Use the 'Profile' command to select functions for profiling, 'Unprofile' to
-deselect specific functions or 'Unprofile All' to deselect all functions.
-Obtain a list of profiled functions with 'Show Profiled'.
-use 'Profile-Report' to display profiling results.
-Reset profiling counters with 'Profile-Reset'.
-
-When the REPL is restarted, the profiler needs to be reloaded (only in case
-of CLISP): select the 'Load-Profiler' command again (this re-compiles
-metering.lisp).
-
-It is possible to override the default profile commands via the following
-templates (see |slimv_templates|):
-
-    |g:slimv_template_profile|
-    |g:slimv_template_unprofile|
-    |g:slimv_template_unprofile_all|
-    |g:slimv_template_show_profiled|
-    |g:slimv_template_profile_report|
-    |g:slimv_template_profile_reset|
 
 
 ===============================================================================
@@ -851,9 +1013,12 @@ It is also possible to add user defined symbols to the Hyperspec database,
 see |g:slimv_clhs_user_db| and |g:slimv_cljapi_user_db|.
 
 
-Slimv uses the Hyperspec symbol database for symbol name completion, via
-Vim's omni-completion feature (if it is enabled and 'omnifunc' is not
-defined already to something else).
+The SWANK client requests simple or fuzzy completion from the SWANK server,
+see |swank-completions| for details.
+
+If the SWANK server is not connected, then Slimv uses the Hyperspec symbol
+database for symbol name completion, via Vim's omni-completion feature
+(if it is enabled and 'omnifunc' is not defined already to something else).
 Start to enter the symbol in Insert mode, then at some point press the
 <C-X><C-O> (omni-complete) key combination or select the 'Complete Symbol'
 function. The first match in the symbol database is inserted at the cursor
@@ -862,290 +1027,6 @@ Use <C-N> to select the next match, <C-P> to select the previous match.
 
 See Vim help file |insert.txt| for details on the usage of the various
 completion functions built in Vim.
-
-
-===============================================================================
-PAREDIT MODE                                          *paredit* *slimv-paredit*
-
-Paredit mode is a special editing mode that keeps all matched characters
-(parentheses, square brackets, double quotes) balanced, i.e. all opening
-characters have a matching closing character. Most text entering and erasing
-commands try to maintain the balanced state, so no single matched character is
-added or deleted, they are entered or removed in pairs.
-The function takes care of strings and comments, so no parenthesis and square
-bracket balancing is performed inside a string or comment.
-
-The idea is taken from the paredit mode of Emacs, but not all paredit.el
-editing functions are implemented or behave exactly the same way as they do
-in Emacs.
-
-When you enter a '(' then a matching ')' is automatically inserted.
-If needed, spaces before and/or after the '()' pair are added.
-
-When you press ')' in insert mode then there's no need to insert a closing
-parenthesis mark (it is already there), so the cursor is simply advanced past
-the next closing parenthesis (then the next outer closing parenthesis, etc.).
-The result of this is however that when entering text with paredit mode
-you can use the same keystrokes as without paredit mode and you get the same
-result. Of course you can choose to not enter the closing parenthesis (as
-required without paredit mode), because it is already there.
-
-When you are trying to delete a ')' alone then it is not possible, the cursor
-is simply moved inside the list, where all regular characters can be deleted.
-When the list is finally empty: '()', then the deletion of the opening '('
-makes both parentheses erased at once, so the balanced state is maintained.
-
-All the above holds for [...] and "..." character pairs.
-
-When you are deleting multiple characters at once, e.g. deleting a whole line,
-or deleting till the end of the line, etc, then the deletion logic of a single
-character is iterated. This means that the whole line or the characters till
-the end of the line, etc are not necessarily deleted all. Depending on the
-number of open/close parentheses, square brackets, double quotes some of them
-might be kept in order to maintain the balanced state.
-For example if you press D in Normal mode to delete till the end of line
-between the a and b parameters of the following Clojure function definition:
-
-(defn myfunc [a b c] (+ a b c))
-               ^--- press D here
-
-then the closing ] as well as the last closing ) will not be deleted, because
-in the list you have an ( and a [ to be matched, so the result will be:
-
-(defn myfunc [a])
-
-If you are deleting multiple lines, then the above process is performed for
-all lines involved. If a line was not completely cleared, then it is joined
-with the next line and the process continues.
-
-
-Of course not all Vim commands are compatible with the paredit mode (e.g.
-you can yank and paste unbalanced code snippet, or comment out an asymmetrical
-part of the code), and there is also the possibility to edit the source code
-with paredit mode switched off or with another editor to make it unbalanced.
-When paredit mode detects that the underlying code is not balanced, then the
-paredit functionality is suspended until the top level form balance is fixed.
-As soon as all parens are matched, the paredit mode is automatically resumed.
-Paredit needs "syntax on" to identify the syntax elements of the underlying
-code, so if syntax is switched off, then paredit will not be suspended inside
-comments or strings.
-
-
-Slurpage and Barfage known from Emacs is also possible but in a different
-fashion: you don't move the symbols but move the opening or closing parenthesis
-over the symbol or a sub-list. This way you can move any symbol or sub-list
-into or out of the current list. It is not possible to move the parenthesis
-over its pair, so for example if you move the opening parenthesis to the right,
-then it will stop at the matched closing parenthesis.
-
-
-Paredit mode is set by default for .lisp and .clj files, but it is possible
-to switch it out by putting the following statement in the .vimrc file:
-
-    let g:paredit_mode = 0
-
-You can enable paredit mode for other file types as well. Here is how to set
-it for Scheme files (meant to be added to your .vimrc file):
-
-    au BufNewFile,BufRead *.scm call PareditInitBuffer()
-
-It is also possible to use the paredit mode alone, without the other parts of
-Slimv. The easiest way to do it is to delete all Slimv related files from the 
-ftplugin directory. If you don't intend to use Slimv's indentation and syntax
-files, then you need to keep only plugin/paredit.vim.
-Another way to prevent Slimv from loading by adding this to your .vimrc file:
-
-    let g:slimv_loaded = 1
-
-Slimv core will not be loaded but paredit will be loaded and assigned to
-.lisp and .clj files.
-
-
-Here follows a list of paredit keybindings:
-
-
-Insert Mode:
-
-    (              Inserts '()' and moves the cursor inside. Also adds leading
-                   or trailing spaces when needed.
-                   Inserts '(' when inside comment or string.
-
-    )              Moves the cursor to the next closing parenthesis mark of
-                   the current list. When pressed again then moves to the next
-                   outer closing parenthesis, etc, until the closing of the
-                   top level form is reached.
-                   Inserts ')' when inside comment or string.
-
-    [              Inserts '[]' and moves the cursor inside. Also adds leading
-                   or trailing spaces when needed.
-                   Inserts '[' when inside comment or string.
-
-    ]              Moves the cursor to the next closing square bracket of the
-                   current list. When pressed again then moves to the next
-                   outer closing square bracket, etc, until the closing of the
-                   top level form is reached.
-                   Inserts ']' when inside comment or string.
-
-    "              When outside of string, inserts '""' and moves the cursor
-                   inside. When inside string then moves to the closing '"'.                   
-                   Inserts '"' when inside comment. Also insert '"' when inside
-                   string and preceded by a '\'.
-
-    <BS>           When about to delete a (, ), [, ], or " and there are other
-                   characters inside, then just skip it to the left. When
-                   about to delete the opening part of the matched character
-                   with nothing inside, then the whole empty list is removed.
-
-    <Del>          When about to delete a (, ), [, ], or " and there are other
-                   characters inside, then just skip it to the right. When
-                   about to delete the closing part of the matched character
-                   with nothing inside, then the whole empty list is removed.
-
-
-Normal Mode:
-
-    (              Finds opening '(' of the current list. Can be pressed
-                   repeatedly until the opening of the top level form reached.
-
-    )              Finds closing ')' of the current list. Can be pressed
-                   repeatedly until the closing of the top level form reached.
-
-    <Leader><      If standing on a delimiter (parenthesis or square bracket)
-                   then moves it to the left by slurping or barfing the
-                   s-expression to the left, depending on the direction of the
-                   delimiter:
-                   Pressing '<' when standing on a ')' makes the s-expression
-                   to the left of the ')' going out of the current list.
-                   Pressing '<' when standing on a '(' makes the s-expression
-                   to the left of the '(' coming into the current list.
-                   For example pressing <Leader>< at position marked with |:
-                       (aaa bbb|)        --->    (aaa) bbb
-                       aaa |(bbb)        --->    (aaa bbb)
-
-    <Leader>>      If standing on a delimiter (parenthesis or square bracket)
-                   then moves it to the right by slurping or barfing the
-                   s-expression to the right, depending on the direction of the
-                   delimiter:
-                   Pressing '>' when standing on a '(' makes the s-expression
-                   to the right of the '(' going out of the current list.
-                   Pressing '>' when standing on a ')' makes the s-expression
-                   to the right of the ')' coming into the current list.
-                   For example pressing <Leader>< at position marked with |:
-                       (aaa|) bbb        --->    (aaa bbb)
-                       |(aaa bbb)        --->    aaa (bbb)
-
-    <Leader>J      Join two subsequent lists or strings. The first one must end
-                   before the cursor, the second one must start after the
-                   cursor position.
-                   For example pressing <Leader>J at position marked with |:
-                       (aaa)| (bbb)      --->    (aaa bbb)
-                       "aaa"| "bbb"      --->    "aaa bbb"
-
-    <Leader>O      Split ("Open") current list or string at the cursor position.
-                   Opposite of Join. Key O is selected because for the original
-                   Vim mapping J and O are also kind of opposites.
-                   For example pressing <Leader>O at position marked with |:
-                       (aaa |bbb)        --->    (aaa) (bbb)
-                       "aaa|bbb"         --->    "aaa" "bbb"
-
-    <Leader>W      Wrap the current symbol in a pair of parentheses. The cursor
-    <Leader>w(     is then positioned on the opening parenthesis, as wrapping
-                   is usually done because one wants to call a function with
-                   the symbol as parameter, so by pressing "a" one can enter
-                   the function name right after the newly inserted "(".
-                   For example pressing <Leader>W at position marked with |:
-                       (aaa b|bb ccc)    --->    (aaa (bbb) ccc)
-
-    <Leader>w[     Wrap the current symbol in a pair of square brackets,
-                   similarly to <Leader>W.
-                   For example pressing <Leader>w[ at position marked with |:
-                       (aaa b|bb ccc)    --->    (aaa [bbb] ccc)
-
-    <Leader>w"     Wrap the current symbol in a pair of double quotes,
-                   similarly to <Leader>W.
-                   For example pressing <Leader>w" at position marked with |:
-                       (aaa b|bb ccc)    --->    (aaa "bbb" ccc)
-
-    <Leader>S      Splice the current list into the containing list, i.e.
-                   remove the opening and closing parens. Opposite of wrap.
-                   For example pressing <Leader>S at position marked with |:
-                       (aaa (b|bb) ccc)  --->    (aaa bbb ccc)
-
-    x  or  <Del>   When about to delete a (, ), [, ], or " and there are other
-                   characters inside, then just skip it to the right. When
-                   about to delete the closing part of the matched character
-                   with nothing inside, then the whole empty list is removed.
-                   When preceded by a <count> value then delete this many
-                   characters.
-
-    X              When about to delete a (, ), [, ], or " and there are other
-                   characters inside, then just skip it to the left. When
-                   about to delete the opening part of the matched character
-                   with nothing inside, then the whole empty list is removed.
-
-    D              Keep deleting characters towards the end of line,
-                   maintaining the balanced state, i.e. keep the number of
-                   opening and closing parens the same.
-
-    C              Same as 'D' but go to insert mode at the end.
-
-    s              Same as 'x' but go to insert mode at the end.
-
-    dd             Delete whole line by keeping the balanced state, i.e.
-                   keep the number of opening and closing parens the same.
-                   When preceded by a <count> value then delete this many
-                   lines.
-
-    <Leader>S      Same as 'dd' but go to insert mode at the end.
-
-    d{motion}      Delete text till {motion}. Keeps text balanced, so if the
-                   surrounded text contains unpaired matched characters then
-                   they are not removed.
-
-    c{motion}      Delete text till {motion} and start insert mode. Keeps text
-                   balanced just like d{motion}.
-
-    p              Put the text after the cursor with all unbalanced matched
-                   characters removed.
-
-    P              Put the text before the cursor with all unbalanced matched
-                   characters removed.
-
-
-Visual Mode:
-
-    (              Finds opening '(' of the current list and selects the whole
-                   list. Can be pressed repeatedly until the top level form
-                   selected.
-
-    )              Finds closing ')' of the current list and selects the whole
-                   list. Can be pressed repeatedly until the top level form
-                   selected.
-
-    d              Delete the current visual selection. Keeps text balanced,
-    x              so the the selection contains unpaired matched characters
-    <Del>          then they are not removed.
-
-    c              Delete the current visual selection and start insert mode.
-                   Keeps text balanced just like the 'd' command.
-
-    <Leader>W      Wrap the current visual selection in a pair of parentheses.
-    <Leader>w(     The visual selection is kept.
-
-    <Leader>w[     Wrap the current visual selection in a pair of square
-                   brackets. The visual selection is kept.
-
-    <Leader>w"     Wrap the current visual selection in a pair of double
-                   quotes. The visual selection is kept.
-
-
-Please note that if variable |g:paredit_shortmaps| is nonzero then the
-following normal mode mappings don't get a <Leader> prefix, they are mapped
-to existing (but infrequently used) Vim functions and instead the original Vim
-functions are mapped with the <Leader> prefix:
-
-                   <, >, J, O, W, S
-
 
 
 ===============================================================================
@@ -1171,12 +1052,14 @@ b. install a Clojure Vim syntax plugin, like VimClojure.
 The indentation is also done via the default lisp.vim indent plugin, or an
 optionally installed Clojure indent plugin, just like for the syntax
 highlighting.
+When the SWANK client is connected to the server, then indentation information
+is fetched from the SWANK server. This allows special indentation methods,
+e.g. when the given macro has an &body argument then it is indented by 2 spaces
+(instead of indenting the second argument below the first one).
+
 There are some built-in Vim reindentation commands that may come very handy
 when editing Lisp files. One can define a custom key mapping for any of them,
 such mappings are not defined by Slimv.
-
-    :set autoindent         Copy indent from current line when starting
-                            a new line.
 
     =                       Reindent selection, after a text has been selected.
 
@@ -1185,6 +1068,8 @@ such mappings are not defined by Slimv.
     vab=   or    [(v%=      Select current list and reindent it.
 
     99[(v%=                 Select top level form and reindent it.
+
+    gg=G                    Reindent whole file.
 
 
 3. Parenthesis handling
@@ -1257,8 +1142,7 @@ FAQ                                                                 *slimv-faq*
 - Q: Why is this plugin called 'Slimv'?
 - A: Because it is trying to mimic the popular Emacs extension 'SLIME'.
      In SLIME 'E' stands for 'Emacs', so here it is replaced with 'V' as Vim.
-     The most recent plugin version also contains a SWANK client, so Slimv's
-     functionality is getting closer to SLIME.
+     The plugin is actually a SWANK (TCP server for Emacs) client.
      To tell the truth, first I gave the name 'Slimvim' to the plugin but
      then I found an (already abandoned) project called 'Slim-Vim' and I did
      not want to interfere with it.
@@ -1278,55 +1162,52 @@ FAQ                                                                 *slimv-faq*
      in Vim, but this may change in the future.
 
 - Q: How does Slimv work?
-- A: Slimv consists of three parts by the original concept:
-     Vim plugin, client and server.
-     The Slimv server is a swank-like server that embeds a console Lisp REPL
-     via pipes, catching all REPL input/output.
-     The Slimv client interfaces with the server and is responsible
-     for sending Lisp commands to the Lisp REPL.
-     The Vim plugin is translating editor commands to Lisp commands to be
-     sent to the server by the client.
-     So the dataflow is like this:
-     Vim -> Vim plugin -> Slimv client -> Slimv server -> Lisp REPL
-     The plugin resides in 'slimv.vim', the client and the server both
-     located in 'slimv.py'.
-
-     Slimv also contains a SWANK client that is able to communicate a
-     running SWANK server, just as it is done by Emacs with SLIME.
-     The SWANK output is regularly polled via the socket connection.
+- A: Slimv is a SWANK client that is able to communicate with a running
+     SWANK server, just as it is done by Emacs with SLIME.
+     The SWANK output is regularly polled via the socket connection and
+     interpreted in the REPL buffer opened in Vim.
      The SWANK client is located in 'swank.py'.
 
-- Q: There is no Slimv server opened when I evaluate a form in Vim.
-- A: There may be many reasons for that. Try to run the server manually by
-     opening a new terminal console window and running this command:
-         {python command} {slimv.py path} -l {lisp command} -s
-     where
-         {python command} is the command to start the Python interpreter,
-         {slimv.py} is the path for slimv.py (usually in Vim's ftplugin dir),
-         {lisp command} is the command to start Lisp (or Clojure).
-     Examples:
-         c:\python24\python "c:\Program Files\Vim\vimfiles\ftplugin\slimv.py" -l c:\clisp\clisp.exe -s
-         python /home/username/.vim/ftplugin/slimv.py -l sbcl -s
-     Please remember to enclose each parameter in double quotes if that
-     parameter contains spaces.
+- Q: But there was a non-swank functionality built in Slimv, where is it now
+     and how can I use it?
+- A: It has been removed since version 0.9.0, because the development focuses
+     on providing a fully functional SWANK client, so the non-swank functionality
+     was not maintained. If you want the old behaviour then fetch plugin
+     version 0.8.6 and set g:slimv_swank to 0 in your vimrc file.
+
+- Q: There is no SWANK server opened when I evaluate a form in Vim.
+- A: There may be many reasons for that. Try to run the SWANK server manually,
+     Slimv detects if a SWANK server is running and is able to connect it.
+     Check if the port number matches in Slimv and the SWANK server.
+     Verify the SWANK server command autodetected by Slimv:
+         :echo SlimvSwankCommand()         
      Also check the following Slimv variables in Vim, maybe they are not
      correctly autodetected and you need to override them in your .vimrc:
          :echo g:slimv_python
          :echo g:slimv_lisp
-         :echo g:slimv_client         
+         :echo g:slimv_swank_cmd   (or g:slimv_swank_clojure for Clojure)
+
+- Q: The Slimv plugin is not loaded for a .lisp (or .clj, etc) file.
+- A: Filetype plugins should be enabled, check it via the :filetype command.
+     If needed, put this in your .vimrc file:
+         filetype plugin on
+         filetype indent on
+     You can check the scripts loaded with the :scriptnames command,
+     filetype.vim and ftplugin.vim should be listed in order to load other
+     filetype plugins.
+     The source buffer filetype should be lisp (or clojure, etc), check it via
+         :set ft?
+     The Slimv files should be in Vim's runtime path, check the path via
+         :set rtp?
+     slimv.vim should be in the ftplugin directory in the runtimepath,
+     there should be an ftplugin/lisp subdirectory containing slimv-lisp.vim.
+     Also make sure that no other ftplugin/lisp.vim is loaded that prevents
+     loading of the Slimv scripts.
 
 - Q: Why is SLIME functionality XYZ missing from Slimv?
-- A: There are two possible reasons:
-     1. The dataflow of Slimv is one-directional: from client to server.
-        There is no data sent back from the server to the client, so if a
-        functionality requires that Slimv reads data from REPL, then
-        currently it is not possible to implement it.
-     2. It is possible to implement it, but I did not (yet) do it.
-        Maybe future releases will contain it. All feature requests are
-        welcome.
-
-- Q: Why is the default Slimv port number 5151?
-- A: Hint: what roman numerals are 5,1,5,1? Bingo: VI, doubled.
+- A: Not all SLIME functions are implemented in the SWANK client, however
+     the list of these functions keep growing.  Maybe future releases will
+     contain it. All feature requests are welcome.
 
 - Q: What is the version numbering concept?
 - A: <major version>.<minor version>.<bugfix release>, where:
@@ -1368,7 +1249,142 @@ FAQ                                                                 *slimv-faq*
 ===============================================================================
 CHANGE LOG                                                    *slimv-changelog*
 
-0.8.0  - Added SWANK client (many thanks to Philipp Marek).
+0.9.1  - Improved frame number identification in SLDB buffer.
+       - Moved frame source location above frame locals in SLDB.
+       - Fold frame source location if more than 2 lines.
+       - Inspect-In-Frame: preselect symbol under cursor only in variable lines.
+       - Inspect-In-Frame: open Inspector in the other window.
+       - Improved XRef file location parsing.
+       - Use current paragraph when no range set for Eval-Region and
+         Compile-Region.
+       - Added option g:slimv_sldb_wrap, do not set wrap for source buffers.
+       - Added Set-Breakpoint command mapped to <leader>B (thanks to
+         Philipp Marek), changed Profile-By-Substring mapping to <leader>P.
+       - Set Lisp keyword characters also in SLDB buffer.
+       - Bugfix: error messages at Connect-Server.
+       - Bugfix: error message for frame source location without filename.
+       - Bugfix: XRef output sometimes cut.
+
+0.9.0  - Separate buffers for SLDB and Inspector.
+       - Toggle frame information in SLDB buffer by pressing Enter.
+       - Look up source when pressing Enter on filename with location in SLDB.
+       - Added option g:swank_block_size to override Swank output buffer size
+         (thanks to stassats on #lisp and Philipp Marek).
+       - Removed old non-swank functionality.
+       - Removed option g:slimv_repl_open.
+       - Paredit: new mappings [[ and ]] for previous and next defun.
+       - Bugfix: various refresh problems (thanks to Philipp Marek).
+       - Bugfix: disable debug mode when reconnecting Swank (by Philipp Marek).
+       - Bugfix: display multi-line debug condition and frame source location,
+         quote characters in compile (by Philipp Marek).
+       - Bugfix: use proper SLDB level when invoking restart (by Philipp Marek).
+       - Bugfix: restore all lisp keyword characters in iskeyword.
+       - Bugfix: indentation of defgeneric.
+       - Bugfix: use proper filename and location when compiling defun or region.
+       - Bugfix: buffer corruption when re-triggering timer in insert mode.
+       - Bugfix: <End> moved cursor to the right edge of screen in REPL buffer
+         when virtualmode=all.
+
+0.8.6  - Handle cl:in-package, common-lisp:in-package (thanks to Philipp Marek).
+       - Added option g:swank_host to allow connecting to remote Swank server.
+       - Autodetection of Cake for Clojure (thanks to Chris Cahoon).
+       - Set Paredit mode also for .cl and .rkt files.
+       - Recognise domain reversed package names in form com.gigamonkeys.pathnames
+         (thanks to has2k1).
+       - Added curly braces rainbow parenthesis for Clojure.
+       - Added paredit handling of curly braces for Clojure.
+       - Use SlimvIndent also for Clojure.
+       - Handle line number returned in :compilation-result.
+       - Bugfix: removed double newline in :read-string (text input).
+       - Bugfix: when editing with cw in paredit mode, keep ending whitespaces
+         (thanks to Mats Rauhala).
+       - Bugfix: compilation error when Swank does not return file name.
+       - Bugfix: skip dot character when Swank returns a dotted pair (a . b).
+
+0.8.5  - Switch on indent plugins.
+       - Do not complete empty string on <Tab>.
+       - Added Clojure keywords to syntax plugin.
+       - Use -i option to load swank-clojure.
+       - Implementation specific REPL initialization, for Clojure it imports
+         source, apropos, javadoc, etc. (thanks to Ömer Sinan Agacan).
+       - Print Lisp version at REPL startup.
+       - Added List-Threads, Kill-Thread, Debug-Thread (thanks to Philipp Marek).
+       - Write prompt after Toggle-Trace.
+       - Display list of untraced functions for Untrace-All.
+       - When in SLDB, Interactive-Eval evaluates expressions in the frame,
+         Inspect inspects objects in the frame.
+       - Changed g:slimv_echolines logic: set 0 for no lines, -1 for all lines.
+       - Bugfix: removed extra linebreak between chunks of long output.
+       - Bugfix: indentation problems for symbols with package specification
+         (thanks to Philipp Marek).
+       - Bugfix: indentation of Clojure's defn.
+       - Bugfix: plist indentation (thanks to Philipp Marek).
+       - Bugfix: occasional few seconds delay in swank response.
+       - Bugfix: running Swank server on Mac OS X (on behalf of Tobias Pflug).
+
+0.8.4  - Added handling for Unicode characters.
+       - Truncate arglist output to fit in the status line.
+       - Added debugger keybindings: ,a for abort ,q for quit ,n for continue.
+       - Changed keybinding for apropos to ,A
+       - Added compiler error messages to quickfix list.
+       - Map insert mode <Space> and <Tab> only for lisp (and dialects) buffers.
+       - Bugfix: wait for the response to :create-repl before calling
+         :swank-require (thanks to Philipp Marek).
+       - Bugfix: indentation problems with unbalanced parens in comment.
+       - Bugfix: arglist ate the <Space> when virtualedit was off.
+
+0.8.3  - Added top/bottom/left/right directions to g:slimv_repl_split.
+       - Added :Lisp (and an equivalent :Eval) command with completion.
+       - Added g:slimv_leader and g:paredit_leader options.
+       - Added g:slimv_echolines to echo only the first few lines of the
+         form being evaluated.
+       - Added fuzzy completion and option g:slimv_simple_compl (by Philipp Marek).
+       - Indent macros with &body argument by two spaces when connected to swank
+         (thanks to Philipp Marek and Andreas Fredriksson).
+       - Special indentation for flet, labels, macrolet.
+       - Default for Set-Package is current package (thanks to Philipp Marek).
+       - Bugfix: REPL output ordering problems.
+       - Bugfix: problem with inserting Space into visual block.
+       - Bugfix: blinking when g:slimv_repl_syntax is on.
+       - Bugfix: entering incomplete form in REPL command line.
+       - Bugfix: close form when inside comment, string, or with mixed ([.
+
+0.8.2  - Added Paredit and g:lisp_rainbow support for Scheme files.
+       - Added SWANK support for MIT Scheme on Linux.
+       - Added frame call information to SLDB (thanks to Philipp Marek).
+       - Check for unbalanced form before evaluation.
+       - Reconnect SWANK server in Connect-Server if already connected
+         (thanks to Philipp Marek).
+       - Select current form instead of top level form in Macroexpand.
+       - Bugfix: Paredit handling of escaped matched characters, like \" or \(.
+       - Bugfix: cursor positioning problems when debugger activated.
+       - Bugfix: print prompt after Describe.
+
+0.8.1  - Added action handling to Inspector, fixed Inspector output.
+       - Bugfix: read-string mode was stuck.
+       - Bugfix: buffer corruption with two source windows
+         (thanks to Philipp Marek).
+       - Bugfix: eliminate multiple CursorHold autocommands
+         (thanks to Philipp Marek).
+       - Bugfix: completion with special characters in symbol name
+         (thanks to Philipp Marek).
+       - Bugfix: sometimes cursor went to the start of line in insert mode.
+       - Bugfix: syntax error in Untrace All (thanks to Philipp Marek).
+       - Bugfix: removed ' prefix from symbol selection (except for Inspect).
+       - Bugfix: keep cursor position in Describe and Compile-Region.
+
+0.8.0  - Major update: added SWANK client (many thanks to Philipp Marek).
+       - Split documentation into three parts.
+       - Added keymapping hints to GUI menu items.
+       - Renamed Eval-Last-Expression to Eval-Current-Expression.
+       - REPL buffer is not syntax highlighted anymore.
+       - Switch on filetype plugins.
+       - Autodetection for Allegro CL, Lisp Cabinet and Leiningen.
+       - Ask for save before compiling file.
+       - Map <Tab> for symbol name completion.
+       - Bugfix: finding start of keyword in completion.
+       - Bugfix: deleting escaped " inside string.
+       - Bugfix: Up/Down/Enter handling in popup menu.
 
 0.7.7  - Paredit: find next closing paren when using ,< or ,> and not standing
          on a paren.
@@ -1561,33 +1577,23 @@ CHANGE LOG                                                    *slimv-changelog*
 ===============================================================================
 ISSUES, LIMITATIONS, KNOWN BUGS                                  *slimv-issues*
 
-- Works only with the console Lisp and Python versions, does not work with the
-  GUI Lisp versions or with a Python IDE (like IDLE).
 - Vim register "s is used for all form selections, so its original content is
   destroyed.
 - Vim mark 's is used to mark the end of the REPL buffer, i.e. the beginning
-  of the "command line".
-- Limited profiling support: does not work for all Lisp implementations.
+  of the "command line", also the for the location of the current frame in
+  the SLDB buffer.
 - Needs Vim version 7.0 or above, because of the intensive use of lists.
-- Needs Python 2.4 or higher (uses the subprocess module)
-- Sometimes a Python exception happens after a CTRL-C inside the REPL buffer
-  followed by an EOF (CTRL-Z or CTRL-D) in the external REPL window.
-- Interruption (Ctrl-C) does not work with all Lisp implementations.
-  For example SBCL exits on Windows when receiving Ctrl-C.
-  It does not work in Clojure.
-  In these cases use the Interrupt-Lisp-Process menu command.
-- There are some functions that are not compatible or simply not working for
-  Clojure.
+- Needs the same Python version that Vim is compiled against
 - It is not possible to run separate Lisp and Clojure REPL in the same
-  Slimv session. Also some other features cannot switch language in the same
-  session, e.g. profiling.
+  Slimv session.
 
 
 ===============================================================================
 TODO                                                               *slimv-todo*
 
 - Add missing SLIME functions to the SWANK client.
-- Separate SLDB/Inspector/etc buffers from the REPL buffer.
+- Continue separating other buffers (e.g. Threads) from the REPL buffer.
+- Allow connecting remote SWANK server (outside of localhost) via SSH.
 
 ===============================================================================
 CREDITS                                                         *slimv-credits*
@@ -1597,15 +1603,28 @@ Author: Tamas Kovacs <kovisoft at gmail dot com>
 Please send comments, bug reports, suggestions, etc. to the e-mail address
 above.
 
+Slimv is free software, you can redistribute it and/or modify it any way you
+like, except the embedded SLIME and Swank Clojure.
+
+SLIME is distributed under the terms of the GNU General Public License as
+published by the Free Software Foundation. See the included slime/README file
+or http://common-lisp.net/project/slime/ for details.
+
+Swank Clojure is licensed under the Eclipse Public License. See the file
+swank-clojure/COPYING or https://github.com/technomancy/swank-clojure for
+details.
+
 Credit must go out to Bram Moolenaar and all the Vim developers for making
 the world's (one of the) best editor.
 
-Thanks to Eric Marsden and all the Emacs/SLIME developers for making SLIME.
-Special thanks to Mark Kantrowitz, Chris McConnell, Skef Wholey and
-Rob MacLachlan for creating the Metering System.
+Thanks to Eric Marsden, Luke Gorrie, Helmut Eller, Luke Gorrie, Helmut Eller,
+Tobias C. Rittweiler and all the Emacs/SLIME developers for making SLIME.
 Also special thanks to Erik Naggum, Yuji Minejima and others for making the
 Common Lisp Hyperspec lookup packages for SLIME, and thanks to
 Taylor R. Campbell for the Emacs paredit.el script.
+
+Thanks to Jeffrey Chu, Phil Hagelberg, Hugo Duncan for making Swank Clojure,
+and to Helmut Eller for making Scheme Swank server.
 
 Thanks to the Vim community for testing, commenting and patching the script,
 especially to Philipp Marek for his great number of contributions, patches,
@@ -1613,10 +1632,16 @@ ideas, suggestions on the SWANK integration.
 
 Also thanks to Vlad Hanciuta, Marcin Fatyga, Dmitry Petukhov,
 Daniel Solano Gómez, Brian Kropf, Len Weincier, Andreas Salwasser,
-Jon Thacker, Andrew Hills, Jerome Baum, John Obbele.
+Jon Thacker, Andrew Hills, Jerome Baum, John Obbele, Andreas Fredriksson,
+Ömer Sinan Agacan, Tobias Pflug, Chris Cahoon, Mats Rauhala for additional
+notes and contributions.
+
+I would also like to say a big thank you to everyone donating to support
+development. This is a one-element list at the moment: :)
+thanks to Paul Michael Bauer.
 
 Last but not least many thanks to my wife Andrea (for the Italians out there:
 hey, this is a female name in Hungary :) for her support and patience.
 
 ===============================================================================
-vim:tw=80:noet:wrap:ts=8:ft=help:norl:
+vim:tw=80:et:wrap:ft=help:norl:
