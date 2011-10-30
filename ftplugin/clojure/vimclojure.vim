@@ -1,4 +1,5 @@
-" Things pulled from Vimclojure.
+" This file is basically Vimclojure's ftplugin/clojure.vim, with a bunch of
+" unnecessary stuff cut out.
 
 " Only do this when not done yet for this buffer
 if exists("b:did_ftplugin_vimclojure")
@@ -30,4 +31,3 @@ let b:match_words = &matchpairs
 let b:match_skip = 's:comment\|string\|character'
 
 let &cpo = s:cpo_save
-
