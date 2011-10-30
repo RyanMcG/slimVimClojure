@@ -168,7 +168,7 @@ runtime ftplugin/**/slimv.vim
 endif "!exists( 'g:slimv_lisp_loaded' )
 " ---------- End of part loaded once ----------
 
-runtime ftplugin/**/lisp.vim
+"runtime ftplugin/**/lisp.vim
 
 " Must be called for each lisp buffer
 call SlimvInitBuffer()
