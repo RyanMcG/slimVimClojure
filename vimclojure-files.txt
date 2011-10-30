@@ -1,0 +1,8 @@
+The Vimclojure files that have been transplanted into this repo:
+
+autoload/vimclojure/util.vim
+autoload/vimclojure.vim
+ftplugin/clojure/vimclojure.vim
+indent/clojure.vim
+plugin/clojure.vim
+syntax/clojure/slimv-syntax-clojure.vim
