@@ -107,7 +107,7 @@ Slimv works on Windows, Linux and Mac OS X (via Terminal.app), Cygwin is support
 
 Vim's Python version can be identified with the :ver command, look for the -DDYNAMIC_PYTHON_DLL=\"pythonXX\" string.
 
-Slimv tries to autodetect your Lisp/Clojure/Python/Slime installation directories. If it fails to determine the correct directories, then you need to enter the command to start the SWANK server into your vimrc file.
+Slimv tries to autodetect your Lisp/Clojure/Slime installation directories. If it fails to determine the correct directories, then you need to enter the command to start the SWANK server into your vimrc file.
 
 Linux example:
     let g:slimv_swank_cmd = '! xterm -e sbcl --load /usr/share/common-lisp/source/slime/start-swank.lisp &'
@@ -130,6 +130,8 @@ See the included documentation for more complete installation and customization 
 --------------------------------------------------------------------------------
 Script versions
 --------------------------------------------------------------------------------
+
+0.9.3: Start Swank server in virtual terminal when running in GNU screen on Linux (thanks to Oleg Terenchuk). Reuse a window for slimv also when there are three or more windows open. Don't go to end of REPL buffer if user moved the cursor away from EOF. Use xdg-open for default browser in Linux. Removed option g:slimv_python. Added option g:slimv_repl_max_len for limiting the number of lines in the REPL buffer. Added option g:slimv_preferred to choose preferred lisp implementation. Query additional parts of big inspected object upon pressing Enter on [--more--]. Thread List is displayed and handled in a separate Threads buffer. Bugfixes: Window navigation problems between source/REPL/SLDB/etc. Error messages when Swank server window is closed. Return control to vim after starting browser defined by g:slimv_browser_cmd. Fixed indentation of arguments before &body argument. Autocomplete for dotted package/namespace names. Indentation of aif.
 
 0.9.2: Added option g:swank_log to enable swank debug log. Added options g:slimv_repl_name, g:slimv_sldb_name, g:slimv_inspect_name. Added option g:slimv_indent_maxlines. Changed Debug-Thread mapping to <leader>dT (g:slimv_keybindings=2) due to conflict with Generate-Tags. Label thread ID in thread list (by Philipp Marek). Set balloonexpr for all buffers (thanks to Philipp Marek). Connect swank server when needed instead of printing an error message (by Philipp Marek). Set expandtab for lisp and clojure files. Kill-Thread kills all threads in the selected range (by Philipp Marek). Bugfixes: Added missing parts of Set-Breakpoint introduced in 0.9.1. Test source lookup (upon pressing Enter) before testing fold toggle in SLDB (by Philipp Marek). Indentation of flet, labels, macrolet. Kill-Thread now really kills thread (by Philipp Marek). Inspect gensyms in frame (by Philipp Marek).
 
