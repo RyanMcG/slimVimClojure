@@ -182,7 +182,7 @@ syn cluster clojureTopCluster    contains=@clojureAtomCluster,clojureComment,clo
 syn keyword clojureTodo contained FIXME XXX TODO FIXME: XXX: TODO:
 syn match   clojureComment contains=clojureTodo ";.*$"
 
-syn match   clojureKeyword "\c:\{1,2}[a-z?!\-_+*./=<>#$][a-z0-9?!\-_+*\./=<>#$]*"
+syn match   clojureKeyword "\c:\{1,2}[a-z0-9?!\-_+*.=<>#$]\+\(/[a-z0-9?!\-_+*.=<>#$]\+\)\?"
 
 syn region  clojureString start=/L\="/ skip=/\\\\\|\\"/ end=/"/
 
@@ -211,6 +211,7 @@ syn match   clojureNumber "\<-\=[0-9]\+/[0-9]\+\>"
 syn match   clojureQuote "\('\|`\)"
 syn match   clojureUnquote "\(\~@\|\~\)"
 syn match   clojureDispatch "\(#^\|#'\)"
+syn match   clojureDispatch "\^"
 
 syn match   clojureAnonArg contained "%\(\d\|&\)\?"
 syn match   clojureVarArg contained "&"
@@ -233,9 +234,15 @@ syn region  clojureSet     matchgroup=clojureParen0 start="#{" matchgroup=clojur
 
 syn region  clojurePattern start=/L\=\#"/ skip=/\\\\\|\\"/ end=/"/
 
-syn region  clojureCommentSexp                          start="("                                       end=")" transparent contained contains=clojureCommentSexp
-syn region  clojureComment     matchgroup=clojureParen0 start="(comment"rs=s+1 matchgroup=clojureParen0 end=")"                       contains=clojureCommentSexp
-syn region  clojureComment                              start="#!" end="\n"
+" FIXME: Matching of 'comment' is broken. It seems we can't nest
+" the different highlighting items, when they share the same end
+" pattern.
+" See also: https://bitbucket.org/kotarak/vimclojure/issue/87/comment-is-highlighted-incorrectly
+"
+"syn region  clojureCommentSexp                          start="("                                       end=")" transparent contained contains=clojureCommentSexp
+"syn region  clojureComment     matchgroup=clojureParen0 start="(comment"rs=s+1 matchgroup=clojureParen0 end=")"                       contains=clojureTopCluster
+syn match   clojureComment "comment"
+syn region  clojureComment start="#!" end="\n"
 syn match   clojureComment "#_"
 
 syn sync fromstart
