@@ -4,8 +4,8 @@
 #
 # SWANK client for Slimv
 # swank.py:     SWANK client code for slimv.vim plugin
-# Version:      0.9.4
-# Last Change:  12 Jan 2012
+# Version:      0.9.5
+# Last Change:  24 Jan 2012
 # Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 # License:      This file is placed in the public domain.
 #               No warranty, express or implied.
@@ -336,6 +336,10 @@ def swank_recv(msglen, timeout):
                     sys.stdout.write( 'Socket error when receiving from SWANK server.\n' )
                     swank_disconnect()
                     return rec
+                if len(data) == 0:
+                    sys.stdout.write( 'Socket error when receiving from SWANK server.\n' )
+                    swank_disconnect()
+                    return rec
                 rec = rec + data
     rec = ''
 
@@ -386,10 +390,10 @@ def swank_parse_inspect_content(pcont):
         vim.command(vc)
         vc = ":let b:range_end=" + end
         vim.command(vc)
-        if lst[linestart][0] == '[':
-            lst.append("\n[--more--]")
-        else:
+        if linestart >= 0 and linestart < len(lst) and (len(lst[linestart]) == 0 or lst[linestart][0] != '['):
             lst[linestart:] = "[--more--]"
+        else:
+            lst.append("\n[--more--]")
     buf = vim.current.buffer
     buf.append([''])
     buf.append("".join(lst).split("\n"))
@@ -784,7 +788,7 @@ def swank_listen():
 
                     elif result == ':abort':
                         debug_active = False
-                        vim.command('let s:debug_activated=0')
+                        vim.command('let s:sldb_level=-1')
                         if len(r[1]) > 1:
                             retval = retval + '; Evaluation aborted on ' + unquote(r[1][1]) + '\n' + prompt + '> '
                         else:
@@ -801,12 +805,12 @@ def swank_listen():
                     debug_activated = True
                     current_thread = r[1]
                     sldb_level = r[2]
-                    vim.command('let s:debug_activated=' + sldb_level)
+                    vim.command('let s:sldb_level=' + sldb_level)
                     frame_locals.clear()
 
                 elif message == ':debug-return':
                     debug_active = False
-                    vim.command('let s:debug_activated=0')
+                    vim.command('let s:sldb_level=-1')
                     retval = retval + '; Quit to level ' + r[2] + '\n' + prompt + '> '
 
                 elif message == ':ping':
