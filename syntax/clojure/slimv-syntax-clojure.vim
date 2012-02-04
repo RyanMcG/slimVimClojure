@@ -43,16 +43,18 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "*print-level* *use-context-classloader* "
 		\            . "*source-path* *clojure-version* *read-eval* "
 		\            . "*fn-loader* *1 *2 *3 *e",
-		\ "Define":    "def- defn defn- defmacro defmulti defmethod "
+		\ "Define":    "def- defmacro defmulti defmethod "
 		\            . "defstruct defonce declare definline definterface "
-		\            . "defprotocol defrecord deftype",
+		\            . "defprotocol defrecord deftype "
+		\            . "defpartial defroutes defparser defpage ",
 		\ "Macro":     "and or -> assert with-out-str with-in-str with-open "
 		\            . "locking destructure ns dosync binding delay "
 		\            . "lazy-cons lazy-cat time assert doc with-precision "
 		\            . "with-local-vars .. doto memfn proxy amap areduce "
 		\            . "refer-clojure future lazy-seq letfn "
 		\            . "with-loading-context bound-fn extend extend-protocol "
-		\            . "extend-type reify with-bindings ->>",
+		\            . "extend-type reify with-bindings ->> "
+		\            . "let->>",
 		\ "Func":      "= not= not nil? false? true? complement identical? "
 		\            . "string? symbol? map? seq? vector? keyword? var? "
 		\            . "special-symbol? apply partial comp constantly "
@@ -176,7 +178,9 @@ if g:vimclojure#DynamicHighlighting != 0 && exists("b:vimclojure_namespace")
 	endtry
 endif
 
-syn cluster clojureAtomCluster   contains=clojureError,clojureFunc,clojureMacro,clojureCond,clojureDefine,clojureRepeat,clojureException,clojureConstant,clojureVariable,clojureSpecial,clojureKeyword,clojureString,clojureCharacter,clojureNumber,clojureBoolean,clojureQuote,clojureUnquote,clojureDispatch,clojurePattern
+
+
+syn cluster clojureAtomCluster   contains=clojureError,clojureFunc,clojureMacro,clojureCond,clojureDefine,clojureRepeat,clojureException,clojureConstant,clojureVariable,clojureSpecial,clojureKeyword,clojureString,clojureCharacter,clojureNumber,clojureBoolean,clojureQuote,clojureUnquote,clojureDispatch,clojurePattern,clojureDefn
 syn cluster clojureTopCluster    contains=@clojureAtomCluster,clojureComment,clojureSexp,clojureAnonFn,clojureVector,clojureMap,clojureSet
 
 syn keyword clojureTodo contained FIXME XXX TODO FIXME: XXX: TODO:
@@ -245,6 +249,12 @@ syn match   clojureComment "comment"
 syn region  clojureComment start="#!" end="\n"
 syn match   clojureComment "#_"
 
+syn match clojureDefn         "\vdefn-?" containedin=clojureSexpLevel0 contained nextgroup=clojureFunctionMeta,clojureFunctionName skipwhite skipempty
+syn match clojureFunctionMeta "\v\^"     contained nextgroup=clojureMetaMap
+syn region  clojureMetaMap     matchgroup=clojureParen0 start="{"  matchgroup=clojureParen0 end="}"  contains=@clojureTopCluster,clojureSexpLevel0 nextgroup=clojureFunctionName skipwhite skipempty
+syn match clojureFunctionName "\v[^ 	^]\S*" contained nextgroup=clojureDocstring skipwhite skipempty
+syn region clojureDocstring start=/L\="/ skip=/\\\\\|\\"/ end=/"/ contained
+
 syn sync fromstart
 
 if version >= 600
@@ -260,10 +270,12 @@ HiLink clojureKeyword   Operator
 HiLink clojureNumber    Number
 HiLink clojureString    String
 HiLink clojurePattern   Constant
+HiLink clojureDocstring Comment
 
 HiLink clojureVariable  Identifier
 HiLink clojureCond      Conditional
 HiLink clojureDefine    Define
+HiLink clojureDefn      Define
 HiLink clojureException Exception
 HiLink clojureFunc      Function
 HiLink clojureMacro     Macro
