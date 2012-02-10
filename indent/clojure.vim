@@ -257,6 +257,6 @@ setlocal lispwords+=ns,clojure.core/ns
 setlocal lispwords+=gen-class,gen-interface
 
 " Custom:
-setlocal lispwords+=defpartial,defpage,deftest,defroutes,defparser,let->>
+setlocal lispwords+=defpartial,defpage,deftest,defroutes,defparser,let->>,defparsertest,>>,match
 
 let &cpo = s:save_cpo

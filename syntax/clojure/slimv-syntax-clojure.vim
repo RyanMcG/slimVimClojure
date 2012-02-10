@@ -43,10 +43,10 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "*print-level* *use-context-classloader* "
 		\            . "*source-path* *clojure-version* *read-eval* "
 		\            . "*fn-loader* *1 *2 *3 *e",
-		\ "Define":    "def- defmacro defmulti defmethod "
+		\ "Define":    "def- defmulti defmethod "
 		\            . "defstruct defonce declare definline definterface "
 		\            . "defprotocol defrecord deftype "
-		\            . "defpartial defroutes defparser defpage ",
+		\            . "defpartial defroutes defparser defpage deftest defparsertest ",
 		\ "Macro":     "and or -> assert with-out-str with-in-str with-open "
 		\            . "locking destructure ns dosync binding delay "
 		\            . "lazy-cons lazy-cat time assert doc with-precision "
@@ -54,7 +54,7 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "refer-clojure future lazy-seq letfn "
 		\            . "with-loading-context bound-fn extend extend-protocol "
 		\            . "extend-type reify with-bindings ->> "
-		\            . "let->>",
+		\            . "let->> >> match ",
 		\ "Func":      "= not= not nil? false? true? complement identical? "
 		\            . "string? symbol? map? seq? vector? keyword? var? "
 		\            . "special-symbol? apply partial comp constantly "
@@ -249,10 +249,15 @@ syn match   clojureComment "comment"
 syn region  clojureComment start="#!" end="\n"
 syn match   clojureComment "#_"
 
-syn match clojureDefn         "\vdefn-?" containedin=clojureSexpLevel0 contained nextgroup=clojureFunctionMeta,clojureFunctionName skipwhite skipempty
+syn match clojureDefn         "\vdefn-?"   containedin=clojureSexpLevel0 contained nextgroup=clojureFunctionMeta,clojureFunctionName skipwhite skipempty
+syn match clojureDefMacro     "\vdefmacro" containedin=clojureSexpLevel0 contained nextgroup=clojureMacroName                        skipwhite skipempty
+
 syn match clojureFunctionMeta "\v\^"     contained nextgroup=clojureMetaMap
-syn region  clojureMetaMap     matchgroup=clojureParen0 start="{"  matchgroup=clojureParen0 end="}"  contains=@clojureTopCluster,clojureSexpLevel0 nextgroup=clojureFunctionName skipwhite skipempty
+syn region clojureMetaMap     matchgroup=clojureParen0 start="{"  matchgroup=clojureParen0 end="}"  contains=@clojureTopCluster,clojureSexpLevel0 nextgroup=clojureFunctionName skipwhite skipempty
+
 syn match clojureFunctionName "\v[^ 	^]\S*" contained nextgroup=clojureDocstring skipwhite skipempty
+syn match clojureMacroName    "\v[^ 	^]\S*" contained nextgroup=clojureDocstring skipwhite skipempty
+
 syn region clojureDocstring start=/L\="/ skip=/\\\\\|\\"/ end=/"/ contained
 
 syn sync fromstart
@@ -272,10 +277,14 @@ HiLink clojureString    String
 HiLink clojurePattern   Constant
 HiLink clojureDocstring Comment
 
+HiLink clojureFunctionName Function
+HiLink clojureMacroName    Macro
+
 HiLink clojureVariable  Identifier
 HiLink clojureCond      Conditional
 HiLink clojureDefine    Define
 HiLink clojureDefn      Define
+HiLink clojureDefMacro  Define
 HiLink clojureException Exception
 HiLink clojureFunc      Function
 HiLink clojureMacro     Macro
