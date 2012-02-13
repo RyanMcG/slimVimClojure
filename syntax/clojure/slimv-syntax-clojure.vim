@@ -46,7 +46,7 @@ if g:vimclojure#HighlightBuiltins != 0
 		\ "Define":    "def- defmulti defmethod "
 		\            . "defstruct defonce declare definline definterface "
 		\            . "defprotocol defrecord deftype "
-		\            . "defpartial defroutes defparser defpage deftest defparsertest ",
+		\            . "defpartial defroutes defparser defpage deftest defparsertest defentity defdb defproject ",
 		\ "Macro":     "and or -> assert with-out-str with-in-str with-open "
 		\            . "locking destructure ns dosync binding delay "
 		\            . "lazy-cons lazy-cat time assert doc with-precision "
