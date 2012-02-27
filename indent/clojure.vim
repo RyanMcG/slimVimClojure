@@ -257,3 +257,4 @@ setlocal lispwords+=ns,clojure.core/ns
 setlocal lispwords+=gen-class,gen-interface
 
 let &cpo = s:save_cpo
+

@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
 " Version:      0.9.5
-" Last Change:  07 Feb 2012
+" Last Change:  26 Feb 2012
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -97,6 +97,10 @@ function! SlimvSwankCommand()
         elseif $TMUX != ''
             " tmux under Linux
             return "! tmux new-window -d -n swank '" . cmd . "'"
+        elseif $DISPLAY == ''
+            " No X, no terminal multiplexer. Cannot run swank server.
+            call SlimvErrorWait( 'No X server. Run Vim from screen/tmux or start SWANK server manually.' )
+            return ''
         else
             " Must be Linux
             return '! xterm -iconic -e ' . cmd . ' &'
@@ -915,7 +919,7 @@ function! SlimvFindPackage()
     if !g:slimv_package || SlimvGetFiletype() == 'scheme'
         return
     endif
-    let oldpos = getpos( '.' )
+    let oldpos = winsaveview()
     if SlimvGetFiletype() == 'clojure'
         let string = '\(in-ns\|ns\)'
     else
@@ -942,15 +946,13 @@ function! SlimvFindPackage()
             let s:swank_package = ''
         endif
     endif
-    call setpos( '.', oldpos )
+    call winrestview( oldpos )
 endfunction
 
 " Execute the given SWANK command with current package defined
 function! SlimvCommandUsePackage( cmd )
-    let oldpos = getpos( '.' ) 
     call SlimvFindPackage()
     let s:refresh_disabled = 1
-    call setpos( '.', oldpos ) 
     call SlimvCommand( a:cmd )
     let s:swank_package = ''
     let s:refresh_disabled = 0
@@ -1214,7 +1216,7 @@ function! SlimvIndent( lnum )
     " When searching for containing forms, don't go back
     " more than g:slimv_indent_maxlines lines.
     let backline = max([pnum-g:slimv_indent_maxlines, 1])
-    let oldpos = getpos( '.' )
+    let oldpos = winsaveview()
     let indent_keylists = g:slimv_indent_keylists
     " Find beginning of the innermost containing form
     normal! 0
@@ -1222,10 +1224,10 @@ function! SlimvIndent( lnum )
     if l > 0
         if SlimvGetFiletype() == 'clojure'
             " Is this a clojure form with [] binding list?
-            call setpos( '.', oldpos )
+            call winrestview( oldpos )
             let [lb, cb] = searchpairpos( '\[', '', '\]', 'bW', s:skip_sc, backline )
             if lb >= l && (lb > l || cb > c)
-                call setpos( '.', oldpos )
+                call winrestview( oldpos )
                 return cb
             endif
         endif
@@ -1237,7 +1239,7 @@ function! SlimvIndent( lnum )
                 exe 'normal! %'
                 if line('.') == pnum
                     " We are indenting the first line after the end of the binding list
-                    call setpos( '.', oldpos )
+                    call winrestview( oldpos )
                     return c + 1
                 endif
             endif
@@ -1250,12 +1252,12 @@ function! SlimvIndent( lnum )
                 if SlimvGetFiletype() != 'clojure'
                     if l2 == l && match( line2, '\c^(\s*\('.s:binding_form.'\)\>' ) >= 0
                         " Is this a lisp form with binding list?
-                        call setpos( '.', oldpos )
+                        call winrestview( oldpos )
                         return c
                     endif
                     if match( line2, '\c^(\s*cond\>' ) >= 0 && match( line, '\c^(\s*t\>' ) >= 0
                         " Is this the 't' case for a 'cond' form?
-                        call setpos( '.', oldpos )
+                        call winrestview( oldpos )
                         return c
                     endif
                     if match( line2, '\c^(\s*defpackage\>' ) >= 0
@@ -1269,7 +1271,7 @@ function! SlimvIndent( lnum )
                     let line3 = strpart( getline(l3), c3-1 )
                     if match( line3, '\c^(\s*\('.s:spec_indent.'\)\>' ) >= 0
                         " This is the first body-line of a binding
-                        call setpos( '.', oldpos )
+                        call winrestview( oldpos )
                         return c + 1
                     endif
                     if match( line3, '\c^(\s*defsystem\>' ) >= 0
@@ -1287,7 +1289,7 @@ function! SlimvIndent( lnum )
             endif
         endif
         " Restore all cursor movements
-        call setpos( '.', oldpos )
+        call winrestview( oldpos )
     endif
 
     " Check if the current form started in the previous nonblank line
@@ -1310,7 +1312,13 @@ function! SlimvIndent( lnum )
         let func = matchstr( form, '\<\k*\>' )
         " If it's a keyword, keep the indentation straight
         if indent_keylists && strpart(func, 0, 1) == ':'
-            return c
+            if form =~ '^:\S*\s\+\S'
+                " This keyword has an associated value in the same line
+                return c
+            else
+                " The keyword stands alone in its line with no associated value
+                return c + 1
+            endif
         endif
         if SlimvGetFiletype() == 'clojure'
             " Fix clojure specific indentation issues not handled by the default lisp.vim
@@ -1318,7 +1326,7 @@ function! SlimvIndent( lnum )
                 return c + 1
             endif
         else
-            if match( func, 'defgeneric$' ) >= 0 || match( func, 'aif$' ) >= 0
+            if match( func, 'defgeneric$' ) >= 0 || match( func, 'defsystem$' ) >= 0 || match( func, 'aif$' ) >= 0
                 return c + 1
             endif
         endif
@@ -1342,6 +1350,12 @@ function! SlimvIndent( lnum )
     set lisp
     let li = lispindent(a:lnum)
     set nolisp
+    let line = strpart( getline(a:lnum-1), li-1 )
+    let gap = matchend( line, '^(\s\+\S' )
+    if gap >= 0
+        " Align to the gap between the opening paren and the first atom
+        return li + gap - 2
+    endif
     return li
 endfunction 
 
@@ -1685,6 +1699,7 @@ function! SlimvArglist()
             let arg = matchstr( line, '\<\k*\>', c0 )
             if arg != ''
                 " Ask function argument list from SWANK
+                call SlimvFindPackage()
                 let msg = SlimvCommandGetResponse( ':operator-arglist', 'python swank_op_arglist("' . arg . '")', 0 )
                 if msg != ''
                     " Print argument list in status line with newlines removed.
@@ -1710,32 +1725,32 @@ function! SlimvArglist()
     return ''
 endfunction
 
-" Start and connect slimv server
-" This is a quite dummy function that just evaluates the empty string
+" Start and connect swank server
 function! SlimvConnectServer()
-    call SlimvBeginUpdate()
-    let repl_buf = bufnr( g:slimv_repl_name )
-    let repl_win = bufwinnr( repl_buf )
-    if repl_buf == -1 || ( g:slimv_repl_split && repl_win == -1 )
-        call SlimvOpenReplBuffer()
-    endif 
     if s:swank_connected
         python swank_disconnect()
         let s:swank_connected = 0
     endif 
-    call SlimvConnectSwank()
+    call SlimvBeginUpdate()
+    if SlimvConnectSwank()
+        let repl_buf = bufnr( g:slimv_repl_name )
+        let repl_win = bufwinnr( repl_buf )
+        if repl_buf == -1 || ( g:slimv_repl_split && repl_win == -1 )
+            call SlimvOpenReplBuffer()
+        endif
+    endif
 endfunction
 
 " Get the last region (visual block)
 function! SlimvGetRegion(first, last)
-    let oldpos = getpos( '.' ) 
+    let oldpos = winsaveview()
     if a:first < a:last || ( a:first == line( "'<" ) && a:last == line( "'>" ) )
         let lines = getline( a:first, a:last )
     else
         " No range was selected, select current paragraph
         normal! vap
         execute "normal! \<Esc>"
-        call setpos( '.', oldpos ) 
+        call winrestview( oldpos ) 
         let lines = getline( "'<", "'>" )
         if lines == [] || lines == ['']
             call SlimvError( "No range selected." )
@@ -1753,7 +1768,7 @@ function! SlimvGetRegion(first, last)
 
     " Find and set package/namespace definition preceding the region
     call SlimvFindPackage()
-    call setpos( '.', oldpos ) 
+    call winrestview( oldpos ) 
     return lines
 endfunction
 
@@ -1832,12 +1847,12 @@ endfunction
 " Evaluate and test top level form at the cursor pos
 function! SlimvEvalTestDefun( testform )
     let outreg = v:register
-    let oldpos = getpos( '.' ) 
+    let oldpos = winsaveview()
     if !SlimvSelectDefun()
         return
     endif
     call SlimvFindPackage()
-    call setpos( '.', oldpos ) 
+    call winrestview( oldpos ) 
     call SlimvEvalSelection( outreg, a:testform )
 endfunction
 
@@ -1878,12 +1893,12 @@ endfunction
 " Evaluate and test current s-expression at the cursor pos
 function! SlimvEvalTestExp( testform )
     let outreg = v:register
-    let oldpos = getpos( '.' ) 
+    let oldpos = winsaveview()
     if !SlimvSelectForm()
         return
     endif
     call SlimvFindPackage()
-    call setpos( '.', oldpos ) 
+    call winrestview( oldpos ) 
     call SlimvEvalSelection( outreg, a:testform )
 endfunction
 
@@ -2143,9 +2158,9 @@ endfunction
 
 " Compile the current top-level form
 function! SlimvCompileDefun()
-    let oldpos = getpos( '.' ) 
+    let oldpos = winsaveview()
     if !SlimvSelectDefun()
-        call setpos( '.', oldpos ) 
+        call winrestview( oldpos ) 
         return
     endif
     if SlimvConnectSwank()
@@ -2237,6 +2252,7 @@ function! SlimvDescribe(arg)
     if !s:swank_connected
         return ''
     endif
+    call SlimvFindPackage()
     let arglist = SlimvCommandGetResponse( ':operator-arglist', 'python swank_op_arglist("' . arg . '")', 0 )
     if arglist == ''
         " Not able to fetch arglist, assuming function is not defined
@@ -2389,6 +2405,7 @@ function! SlimvComplete( base )
         return []
     endif
     if s:swank_connected
+        call SlimvFindPackage()
         if g:slimv_simple_compl
             let msg = SlimvCommandGetResponse( ':simple-completions', 'python swank_completions("' . a:base . '")', 0 )
         else

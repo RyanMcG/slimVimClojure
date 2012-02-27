@@ -1,5 +1,5 @@
-" lisp.vim:
-"               Lisp indent plugin for Slimv
+" scheme.vim:
+"               Scheme indent plugin for Slimv
 " Version:      0.9.5
 " Last Change:  21 Feb 2012
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
@@ -10,18 +10,11 @@
 " =====================================================================
 "
 "  Load Once:
-if exists("b:did_indent")
+if exists("b:did_indent") || exists("g:slimv_disable_scheme")
    finish
 endif
 
-" Handle cases when lisp dialects explicitly use the lisp indent plugins
-if &ft == "clojure" && exists("g:slimv_disable_clojure")
-    finish
-endif
-
-if &ft == "scheme" && exists("g:slimv_disable_scheme")
-    finish
-endif 
+let b:did_indent = 1
 
 setlocal nolisp
 setlocal autoindent
