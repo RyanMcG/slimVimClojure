@@ -30,7 +30,8 @@ if g:vimclojure#HighlightBuiltins != 0
 		\ "Boolean":   "true false",
 		\ "Cond":      "if if-not if-let when when-not when-let "
 		\            . "when-first cond condp case",
-		\ "Exception": "try catch finally throw",
+		\ "Exception": "try catch finally throw "
+		\            . "try+ throw+ ",
 		\ "Repeat":    "recur map mapcat reduce filter for doseq dorun "
 		\            . "doall dotimes map-indexed keep keep-indexed",
 		\ "Special":   ". def do fn if let new quote var loop",
@@ -47,6 +48,7 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "defstruct defonce declare definline definterface "
 		\            . "defprotocol defrecord deftype "
 		\            . "definst defsynth "
+		\            . "defform defform- defrule "
 		\            . "defpartial defroutes defparser defpage deftest defparsertest defentity defdb defproject ",
 		\ "Macro":     "and or -> assert with-out-str with-in-str with-open "
 		\            . "locking destructure ns dosync binding delay "
