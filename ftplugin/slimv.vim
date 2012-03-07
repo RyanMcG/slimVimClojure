@@ -1,6 +1,6 @@
 " slimv.vim:    The Superior Lisp Interaction Mode for VIM
 " Version:      0.9.5
-" Last Change:  26 Feb 2012
+" Last Change:  06 Mar 2012
 " Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 " License:      This file is placed in the public domain.
 "               No warranty, express or implied.
@@ -236,7 +236,7 @@ endif
 
 " Custom <Leader> for the Slimv plugin
 if !exists( 'g:slimv_leader' )
-    if exists( 'mapleader' )
+    if exists( 'mapleader' ) && mapleader != ' '
         let g:slimv_leader = mapleader
     else
         let g:slimv_leader = ','
@@ -292,7 +292,9 @@ let s:current_win = -1                                    " Swank action was req
 let s:skip_sc = 'synIDattr(synID(line("."), col("."), 0), "name") =~ "[Ss]tring\\|[Cc]omment"'
                                                           " Skip matches inside string or comment 
 let s:frame_def = '^\s\{0,2}\d\{1,3}:'                    " Regular expression to match SLDB restart or frame identifier
-let s:spec_indent = 'flet\|labels\|macrolet'              " List of symbols need special indenting
+let s:spec_indent = 'flet\|labels\|macrolet\|symbol-macrolet'
+                                                          " List of symbols need special indenting
+let s:spec_param = 'defmacro'                             " List of symbols with special parameter list
 let s:binding_form = 'let\|let\*'                         " List of symbols with binding list
 
 " =====================================================================
@@ -870,17 +872,25 @@ endfunction
 function! SlimvSelectForm()
     " Search the opening '(' if we are standing on a special form prefix character
     let c = col( '.' ) - 1
+    let firstchar = getline( '.' )[c]
     while c < len( getline( '.' ) ) && match( "'`#", getline( '.' )[c] ) >= 0
         normal! l
         let c = c + 1
     endwhile
+    let p1 = getpos('.')
     normal! va(o
-    " Handle '() or #'() etc. type special syntax forms
-    let c = col( '.' ) - 2
-    while c >= 0 && match( ' \t()', getline( '.' )[c] ) < 0
-        normal! h
-        let c = c - 1
-    endwhile
+    let p2 = getpos('.')
+    if firstchar != '(' && p1[1] == p2[1] && (p1[2] == p2[2] || p1[2] == p2[2]+1)
+        " Empty selection and no paren found, select current word instead
+        normal! aw
+    else
+        " Handle '() or #'() etc. type special syntax forms (but stop at prompt)
+        let c = col( '.' ) - 2
+        while c >= 0 && match( ' \t()>', getline( '.' )[c] ) < 0
+            normal! h
+            let c = c - 1
+        endwhile
+    endif
     silent normal! "sy
     let sel = SlimvGetSelection()
     if sel == ''
@@ -1249,6 +1259,15 @@ function! SlimvIndent( lnum )
             let [l2, c2] = searchpairpos( '(', '', ')', 'bW', s:skip_sc, backline )
             if l2 > 0
                 let line2 = strpart( getline(l2), c2-1 )
+                if match( line2, '\c^(\s*\('.s:spec_param.'\)\>' ) >= 0
+                    if search( '(' ) > 0
+                        if line('.') == l && col('.') == c
+                            " This is the parameter list of a special form
+                            call winrestview( oldpos )
+                            return c
+                        endif
+                    endif
+                endif
                 if SlimvGetFiletype() != 'clojure'
                     if l2 == l && match( line2, '\c^(\s*\('.s:binding_form.'\)\>' ) >= 0
                         " Is this a lisp form with binding list?

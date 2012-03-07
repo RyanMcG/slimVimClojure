@@ -5,7 +5,7 @@
 # SWANK client for Slimv
 # swank.py:     SWANK client code for slimv.vim plugin
 # Version:      0.9.5
-# Last Change:  26 Feb 2012
+# Last Change:  07 Mar 2012
 # Maintainer:   Tamas Kovacs <kovisoft at gmail dot com>
 # License:      This file is placed in the public domain.
 #               No warranty, express or implied.
@@ -184,8 +184,18 @@ def unquote(s):
     if len(s) < 2:
         return s
     if s[0] == '"' and s[-1] == '"':
-        t = s[1:-1].replace('\\"', '"')
-        return t.replace('\\\\', '\\')
+        slist = []
+        esc = False
+        for c in s[1:-1]:
+            if not esc and c == '\\':
+                esc = True
+            elif esc and c == 'n':
+                esc = False
+                slist.append('\n')
+            else:
+                esc = False
+                slist.append(c)
+        return "".join(slist)
     else:
         return s
 
@@ -440,6 +450,8 @@ def swank_parse_debug(struct):
     vim.command('call SlimvEndUpdate()')
     vim.command("call search('^Restarts:', 'w')")
     vim.command('stopinsert')
+    # This text will be printed into the REPL buffer
+    return unquote(condition[0]) + "\n" + unquote(condition[1]) + "\n"
 
 def swank_parse_xref(struct):
     """
@@ -798,7 +810,7 @@ def swank_listen():
                     swank_parse_inspect(r[1])
 
                 elif message == ':debug':
-                    swank_parse_debug(r)
+                    retval = retval + swank_parse_debug(r)
 
                 elif message == ':debug-activate':
                     debug_active = True
