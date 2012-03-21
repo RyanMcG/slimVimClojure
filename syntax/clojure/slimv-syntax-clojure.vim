@@ -48,7 +48,8 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "defstruct defonce declare definline definterface "
 		\            . "defprotocol defrecord deftype "
 		\            . "definst defsynth "
-		\            . "defform defform- defrule "
+		\            . "defgauge defmeter defhistogram defcounter deftimer "
+		\            . "defremote defmigration defform defform- defrule "
 		\            . "defpartial defroutes defparser defpage deftest defparsertest defentity defdb defproject ",
 		\ "Macro":     "and or -> assert with-out-str with-in-str with-open "
 		\            . "locking destructure ns dosync binding delay "
