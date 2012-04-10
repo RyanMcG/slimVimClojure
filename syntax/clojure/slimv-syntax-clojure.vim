@@ -49,6 +49,7 @@ if g:vimclojure#HighlightBuiltins != 0
 		\            . "defprotocol defrecord deftype "
 		\            . "definst defsynth "
 		\            . "defsketch "
+		\            . "defspec "
 		\            . "defgauge defmeter defhistogram defcounter deftimer "
 		\            . "defremote defmigration defform defform- defrule "
 		\            . "defpartial defroutes defparser defpage deftest defparsertest defentity defdb defproject ",
