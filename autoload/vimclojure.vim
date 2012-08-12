@@ -53,22 +53,40 @@ if !exists("g:vimclojure#ParenRainbow")
 	endif
 endif
 
-if !exists("g:vimclojure#WantNailgun")
+if !exists("g:vimclojure#WantBackend")
 	if exists("g:clj_want_gorilla")
 		call vimclojure#WarnDeprecated("g:clj_want_gorilla",
-					\ "vimclojure#WantNailgun")
-		let vimclojure#WantNailgun = g:clj_want_gorilla
+					\ "vimclojure#WantBackend")
+		let vimclojure#WantBackend = g:clj_want_gorilla
+	elseif exists("g:vimclojure#WantNailgun")
+		call vimclojure#WarnDeprecated("g:vimclojure#WantNailgun",
+					\ "vimclojure#WantBackend")
+		let vimclojure#WantBackend = g:vimclojure#WantNailgun
 	else
-		let vimclojure#WantNailgun = 0
+		let vimclojure#WantBackend = 0
 	endif
 endif
 
-if !exists("g:vimclojure#NailgunServer")
-	let vimclojure#NailgunServer = "127.0.0.1"
+if exists("vimclojure#NailgunClient")
+	call vimclojure#WarnDeprecated("g:vimclojure#NailgunClient",
+				\ "vimclojure#connector#nailgun#Client")
+	let vimclojure#connector#nailgun#Client = g:vimclojure#NailgunClient
 endif
 
-if !exists("g:vimclojure#NailgunPort")
-	let vimclojure#NailgunPort = "2113"
+if exists("g:vimclojure#NailgunServer")
+	call vimclojure#WarnDeprecated("g:vimclojure#NailgunServer",
+				\ "vimclojure#connector#nailgun#Server")
+	let vimclojure#connector#nailgun#Server = g:vimclojure#NailgunServer
+endif
+
+if exists("g:vimclojure#NailgunPort")
+	call vimclojure#WarnDeprecated("g:vimclojure#NailgunPort",
+				\ "vimclojure#connector#nailgun#Port")
+	let vimclojure#connector#nailgun#Port = g:vimclojure#NailgunPort
+endif
+
+if !exists("g:vimclojure#Connector")
+	let vimclojure#Connector = vimclojure#connector#nailgun#Connector()
 endif
 
 if !exists("g:vimclojure#UseErrorBuffer")
@@ -107,34 +125,33 @@ function! vimclojure#AddCompletions(ns)
 	endif
 endfunction
 
-function! ClojureExtractSexprWorker() dict
-	let pos = [0, 0]
-	let start = getpos(".")
-
-	if getline(start[1])[start[2] - 1] == "("
-				\ && vimclojure#util#SynIdName() =~ 'clojureParen' . self.level
-		let pos = [start[1], start[2]]
-	endif
-
-	if pos == [0, 0]
-		let pos = searchpairpos('(', '', ')', 'bW' . self.flag,
-					\ 'vimclojure#util#SynIdName() !~ "clojureParen\\d"')
-	endif
-
-	if pos == [0, 0]
-		throw "Error: Not in a s-expression!"
-	endif
-
-	return [pos, vimclojure#util#Yank('l', 'normal! "ly%')]
-endfunction
-
 " Nailgun part:
 function! vimclojure#ExtractSexpr(toplevel)
 	let closure = {
 				\ "flag"  : (a:toplevel ? "r" : ""),
-				\ "level" : (a:toplevel ? "0" : '\d'),
-				\ "f"     : function("ClojureExtractSexprWorker")
+				\ "level" : (a:toplevel ? "0" : '\d')
 				\ }
+
+	function closure.f() dict
+		let pos = [0, 0]
+		let start = getpos(".")
+
+		if getline(start[1])[start[2] - 1] == "("
+					\ && vimclojure#util#SynIdName() =~ 'clojureParen' . self.level
+			let pos = [start[1], start[2]]
+		endif
+
+		if pos == [0, 0]
+			let pos = searchpairpos('(', '', ')', 'bW' . self.flag,
+						\ 'vimclojure#util#SynIdName() !~ "clojureParen\\d"')
+		endif
+
+		if pos == [0, 0]
+			throw "Error: Not in a s-expression!"
+		endif
+
+		return [pos, vimclojure#util#Yank('l', 'normal! "ly%')]
+	endfunction
 
 	return vimclojure#util#WithSavedPosition(closure)
 endfunction
@@ -183,14 +200,14 @@ if !exists("*vimclojure#CommandPlug")
 	function vimclojure#CommandPlug(f, args)
 		if exists("b:vimclojure_loaded")
 					\ && !exists("b:vimclojure_namespace")
-					\ && g:vimclojure#WantNailgun == 1
+					\ && g:vimclojure#WantBackend == 1
 			unlet b:vimclojure_loaded
 			call vimclojure#InitBuffer("silent")
 		endif
 
 		if exists("b:vimclojure_namespace")
 			call call(a:f, a:args)
-		elseif g:vimclojure#WantNailgun == 1
+		elseif g:vimclojure#WantBackend == 1
 			let msg = "VimClojure could not initialise the server connection.\n"
 						\ . "That means you will not be able to use the interactive features.\n"
 						\ . "Reasons might be that the server is not running or that there is\n"
@@ -226,7 +243,6 @@ let vimclojure#Object = {}
 
 function! vimclojure#Object.New(...) dict
 	let instance = copy(self)
-	let instance.prototype = self
 
 	call call(instance.Init, a:000, instance)
 
@@ -287,9 +303,7 @@ endfunction
 function! vimclojure#Buffer.showText(text) dict
 	call self.goHere()
 	if type(a:text) == type("")
-		" XXX: Opening the box of the pandora.
-		" 2012-01-09: Adding Carriage Returns here.
-		let text = split(a:text, '\r\?\n')
+		let text = split(a:text, '\n')
 	else
 		let text = a:text
 	endif
@@ -325,29 +339,21 @@ let vimclojure#ResultBuffer["__superBufferNew"] = vimclojure#ResultBuffer["New"]
 let vimclojure#ResultBuffer["__superBufferInit"] = vimclojure#ResultBuffer["Init"]
 let vimclojure#ResultBuffer.__instance = []
 
-function! ClojureResultBufferNewWorker() dict
-	set switchbuf=useopen
-	call self.instance.goHereWindow()
-	call call(self.instance.Init, self.args, self.instance)
-
-	return self.instance
-endfunction
-
 function! vimclojure#ResultBuffer.New(...) dict
 	if g:vimclojure#ResultBuffer.__instance != []
-		let oldInstance = g:vimclojure#ResultBuffer.__instance[0]
+		let closure = {
+					\ 'instance' : g:vimclojure#ResultBuffer.__instance[0],
+					\ 'args'     : a:000
+					\ }
+		function closure.f() dict
+			set switchbuf=useopen
+			call self.instance.goHereWindow()
+			call call(self.instance.Init, self.args, self.instance)
 
-		if oldInstance.prototype is self
-			let closure = {
-						\ 'instance' : oldInstance,
-						\ 'args'     : a:000,
-						\ 'f'        : function("ClojureResultBufferNewWorker")
-						\ }
+			return self.instance
+		endfunction
 
-			return vimclojure#util#WithSavedOption('switchbuf', closure)
-		else
-			call oldInstance.close()
-		endif
+		return vimclojure#util#WithSavedOption('switchbuf', closure)
 	endif
 
 	let b:vimclojure_result_buffer = 1
@@ -408,71 +414,12 @@ function! vimclojure#ClojureResultBuffer.showOutput(text) dict
 	normal G
 endfunction
 
-" Nails
-if !exists("vimclojure#NailgunClient")
-	let vimclojure#NailgunClient = "ng"
-endif
-
-function! ClojureShellEscapeArgumentsWorker() dict
-	set noshellslash
-	return map(copy(self.vals), 'shellescape(v:val)')
-endfunction
-
-function! vimclojure#ShellEscapeArguments(vals)
-	let closure = {
-				\ 'vals': a:vals,
-				\ 'f'   : function("ClojureShellEscapeArgumentsWorker")
-				\ }
-
-	return vimclojure#util#WithSavedOption('shellslash', closure)
-endfunction
-
-function! vimclojure#ExecuteNailWithInput(nail, input, ...)
-	if type(a:input) == type("")
-		let input = split(a:input, '\n', 1)
-	else
-		let input = a:input
-	endif
-
-	let inputfile = tempname()
-	try
-		call writefile(input, inputfile)
-
-		let cmdline = vimclojure#ShellEscapeArguments(
-					\ [g:vimclojure#NailgunClient,
-					\   '--nailgun-server', g:vimclojure#NailgunServer,
-					\   '--nailgun-port', g:vimclojure#NailgunPort,
-					\   'vimclojure.Nail', a:nail]
-					\ + a:000)
-		let cmd = join(cmdline, " ") . " <" . inputfile
-		" Add hardcore quoting for Windows
-		if has("win32") || has("win64")
-			let cmd = '"' . cmd . '"'
-		endif
-
-		let output = system(cmd)
-
-		if v:shell_error
-			throw "Error executing Nail! (" . v:shell_error . ")\n" . output
-		endif
-	finally
-		call delete(inputfile)
-	endtry
-
-	execute "let result = " . substitute(output, '\n$', '', '')
-	return result
-endfunction
-
-function! vimclojure#ExecuteNail(nail, ...)
-	return call(function("vimclojure#ExecuteNailWithInput"), [a:nail, ""] + a:000)
-endfunction
-
 function! vimclojure#DocLookup(word)
 	if a:word == ""
 		return
 	endif
 
-	let doc = vimclojure#ExecuteNailWithInput("DocLookup", a:word,
+	let doc = g:vimclojure#Connector.execute("DocLookup", a:word,
 				\ "-n", b:vimclojure_namespace)
 	let buf = g:vimclojure#ResultBuffer.New()
 	call buf.showOutput(doc)
@@ -481,7 +428,7 @@ endfunction
 
 function! vimclojure#FindDoc()
 	let pattern = input("Pattern to look for: ")
-	let doc = vimclojure#ExecuteNailWithInput("FindDoc", pattern)
+	let doc = g:vimclojure#Connector.execute("FindDoc", pattern)
 	let buf = g:vimclojure#ResultBuffer.New()
 	call buf.showOutput(doc)
 	wincmd p
@@ -522,7 +469,7 @@ endif
 
 function! vimclojure#JavadocLookup(word)
 	let word = substitute(a:word, "\\.$", "", "")
-	let path = vimclojure#ExecuteNailWithInput("JavadocPath", word,
+	let path = g:vimclojure#Connector.execute("JavadocPath", word,
 				\ "-n", b:vimclojure_namespace)
 
 	if path.stderr != ""
@@ -548,7 +495,7 @@ function! vimclojure#JavadocLookup(word)
 endfunction
 
 function! vimclojure#SourceLookup(word)
-	let source = vimclojure#ExecuteNailWithInput("SourceLookup", a:word,
+	let source = g:vimclojure#Connector.execute("SourceLookup", a:word,
 				\ "-n", b:vimclojure_namespace)
 	let buf = g:vimclojure#ClojureResultBuffer.New(b:vimclojure_namespace)
 	call buf.showOutput(source)
@@ -556,7 +503,7 @@ function! vimclojure#SourceLookup(word)
 endfunction
 
 function! vimclojure#MetaLookup(word)
-	let meta = vimclojure#ExecuteNailWithInput("MetaLookup", a:word,
+	let meta = g:vimclojure#Connector.execute("MetaLookup", a:word,
 				\ "-n", b:vimclojure_namespace)
 	let buf = g:vimclojure#ClojureResultBuffer.New(b:vimclojure_namespace)
 	call buf.showOutput(meta)
@@ -564,7 +511,7 @@ function! vimclojure#MetaLookup(word)
 endfunction
 
 function! vimclojure#GotoSource(word)
-	let pos = vimclojure#ExecuteNailWithInput("SourceLocation", a:word,
+	let pos = g:vimclojure#Connector.execute("SourceLocation", a:word,
 				\ "-n", b:vimclojure_namespace)
 
 	if pos.stderr != ""
@@ -597,7 +544,7 @@ function! vimclojure#MacroExpand(firstOnly)
 		let cmd = cmd + [ "-o" ]
 	endif
 
-	let expanded = call(function("vimclojure#ExecuteNailWithInput"), cmd)
+	let expanded = call(g:vimclojure#Connector.execute, cmd)
 
 	let buf = g:vimclojure#ClojureResultBuffer.New(ns)
 	call buf.showOutput(expanded)
@@ -609,7 +556,7 @@ function! vimclojure#RequireFile(all)
 	let all = a:all ? "-all" : ""
 
 	let require = "(require :reload" . all . " :verbose '". ns. ")"
-	let result = vimclojure#ExecuteNailWithInput("Repl", require, "-r")
+	let result = g:vimclojure#Connector.execute("Repl", require, "-r")
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
 	call resultBuffer.showOutput(result)
@@ -619,7 +566,7 @@ endfunction
 function! vimclojure#RunTests(all)
 	let ns = b:vimclojure_namespace
 
-	let result = call(function("vimclojure#ExecuteNailWithInput"),
+	let result = call(g:vimclojure#Connector.execute,
 				\ [ "RunTests", "", "-n", ns ] + (a:all ? [ "-a" ] : []))
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
 	call resultBuffer.showOutput(result)
@@ -631,7 +578,7 @@ function! vimclojure#EvalFile()
 	let file = vimclojure#BufferName()
 	let ns = b:vimclojure_namespace
 
-	let result = vimclojure#ExecuteNailWithInput("Repl", content,
+	let result = g:vimclojure#Connector.execute("Repl", content,
 				\ "-r", "-n", ns, "-f", file)
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
@@ -645,7 +592,7 @@ function! vimclojure#EvalLine()
 	let file = vimclojure#BufferName()
 	let ns = b:vimclojure_namespace
 
-	let result = vimclojure#ExecuteNailWithInput("Repl", content,
+	let result = g:vimclojure#Connector.execute("Repl", content,
 				\ "-r", "-n", ns, "-f", file, "-l", theLine)
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
@@ -658,7 +605,7 @@ function! vimclojure#EvalBlock()
 	let ns = b:vimclojure_namespace
 
 	let content = getbufline(bufnr("%"), line("'<"), line("'>"))
-	let result = vimclojure#ExecuteNailWithInput("Repl", content,
+	let result = g:vimclojure#Connector.execute("Repl", content,
 				\ "-r", "-n", ns, "-f", file, "-l", line("'<") - 1)
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
@@ -671,7 +618,7 @@ function! vimclojure#EvalToplevel()
 	let ns = b:vimclojure_namespace
 	let [pos, expr] = vimclojure#ExtractSexpr(1)
 
-	let result = vimclojure#ExecuteNailWithInput("Repl", expr,
+	let result = g:vimclojure#Connector.execute("Repl", expr,
 				\ "-r", "-n", ns, "-f", file, "-l", pos[0] - 1)
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
@@ -679,22 +626,22 @@ function! vimclojure#EvalToplevel()
 	wincmd p
 endfunction
 
-function! ClojureEvalParagraphWorker() dict
-	normal! }
-	return line(".")
-endfunction
-
 function! vimclojure#EvalParagraph()
 	let file = vimclojure#BufferName()
 	let ns = b:vimclojure_namespace
 	let startPosition = line(".")
 
-	let closure = { 'f' : function("ClojureEvalParagraphWorker") }
+	let closure = {}
+
+	function! closure.f() dict
+		normal! }
+		return line(".")
+	endfunction
 
 	let endPosition = vimclojure#util#WithSavedPosition(closure)
 
 	let content = getbufline(bufnr("%"), startPosition, endPosition)
-	let result = vimclojure#ExecuteNailWithInput("Repl", content,
+	let result = g:vimclojure#Connector.execute("Repl", content,
 				\ "-r", "-n", ns, "-f", file, "-l", startPosition - 1)
 
 	let resultBuffer = g:vimclojure#ClojureResultBuffer.New(ns)
@@ -720,7 +667,7 @@ endfunction
 " FIXME: Ugly hack. But easier than cleaning up the buffer
 " mess in case something goes wrong with repl start.
 function! vimclojure#Repl.New(namespace) dict
-	let replStart = vimclojure#ExecuteNail("Repl", "-s",
+	let replStart = g:vimclojure#Connector.execute("Repl", "", "-s",
 				\ "-n", a:namespace)
 	if replStart.stderr != ""
 		call vimclojure#ReportError(replStart.stderr)
@@ -729,7 +676,7 @@ function! vimclojure#Repl.New(namespace) dict
 
 	let instance = call(self.__superBufferNew, [a:namespace], self)
 	let instance._id = replStart.value.id
-	call vimclojure#ExecuteNailWithInput("Repl",
+	call g:vimclojure#Connector.execute("Repl",
 				\ "(require 'clojure.stacktrace)",
 				\ "-r", "-i", instance._id)
 
@@ -782,23 +729,23 @@ endfunction
 
 function! vimclojure#Repl.doReplCommand(cmd) dict
 	if a:cmd == ",close"
-		call vimclojure#ExecuteNail("Repl", "-S", "-i", self._id)
+		call g:vimclojure#Connector.execute("Repl", "", "-S", "-i", self._id)
 		call self.close()
 		stopinsert
 	elseif a:cmd == ",st"
-		let result = vimclojure#ExecuteNailWithInput("Repl",
+		let result = g:vimclojure#Connector.execute("Repl",
 					\ "(vimclojure.util/pretty-print-stacktrace *e)", "-r",
 					\ "-i", self._id)
 		call self.showOutput(result)
 		call self.showPrompt()
 	elseif a:cmd == ",ct"
-		let result = vimclojure#ExecuteNailWithInput("Repl",
+		let result = g:vimclojure#Connector.execute("Repl",
 					\ "(vimclojure.util/pretty-print-causetrace *e)", "-r",
 					\ "-i", self._id)
 		call self.showOutput(result)
 		call self.showPrompt()
 	elseif a:cmd == ",toggle-pprint"
-		let result = vimclojure#ExecuteNailWithInput("Repl",
+		let result = g:vimclojure#Connector.execute("Repl",
 					\ "(set! vimclojure.repl/*print-pretty* (not vimclojure.repl/*print-pretty*))", "-r",
 					\ "-i", self._id)
 		call self.showOutput(result)
@@ -869,7 +816,7 @@ function! vimclojure#Repl.enterHook() dict
 		return
 	endif
 
-	let result = vimclojure#ExecuteNailWithInput("CheckSyntax", cmd,
+	let result = g:vimclojure#Connector.execute("CheckSyntax", cmd,
 				\ "-n", b:vimclojure_namespace)
 	if result.value == 0 && result.stderr == ""
 		call vimclojure#ReplDoEnter()
@@ -877,14 +824,14 @@ function! vimclojure#Repl.enterHook() dict
 		let buf = g:vimclojure#ResultBuffer.New()
 		call buf.showOutput(result)
 	else
-		let result = vimclojure#ExecuteNailWithInput("Repl", cmd,
+		let result = g:vimclojure#Connector.execute("Repl", cmd,
 					\ "-r", "-i", self._id)
 		call self.showOutput(result)
 
 		let self._historyDepth = 0
 		let self._history = [cmd] + self._history
 
-		let namespace = vimclojure#ExecuteNailWithInput("ReplNamespace", "",
+		let namespace = g:vimclojure#Connector.execute("ReplNamespace", "",
 					\ "-i", self._id)
 		let b:vimclojure_namespace = namespace.value
 		let self._prompt = namespace.value . "=>"
@@ -983,7 +930,7 @@ function! vimclojure#OmniCompletion(findstart, base)
 			return []
 		endif
 
-		let completions = vimclojure#ExecuteNail("Complete",
+		let completions = g:vimclojure#Connector.execute("Complete", "",
 					\ "-n", b:vimclojure_namespace,
 					\ "-p", prefix, "-b", base)
 		return completions.value
@@ -1005,7 +952,7 @@ function! vimclojure#InitBuffer(...)
 				try
 					let content = getbufline(bufnr("%"), 1, line("$"))
 					let namespace =
-								\ vimclojure#ExecuteNailWithInput(
+								\ g:vimclojure#Connector.execute(
 								\   "NamespaceOfFile", content)
 					if namespace.stderr != ""
 						throw namespace.stderr

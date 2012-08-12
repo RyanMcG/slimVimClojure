@@ -6,7 +6,7 @@ ftplugin/clojure/vimclojure.vim
 indent/clojure.vim
 syntax/clojure/slimv-syntax-clojure.vim
 
-cp -R vimclojure/vim/autoload .
-cp vimclojure/vim/ftplugin/clojure.vim   ftplugin/clojure/vimclojure.vim
-cp vimclojure/vim/indent/clojure.vim     indent/clojure.vim
-cp vimclojure/vim/syntax/clojure.vim     syntax/clojure/slimv-syntax-clojure.vim
+cp -R vimclojure/vim/src/main/vim/autoload .
+cp vimclojure/vim/src/main/vim/ftplugin/clojure.vim   ftplugin/clojure/vimclojure.vim
+cp vimclojure/vim/src/main/vim/indent/clojure.vim     indent/clojure.vim
+cp vimclojure/vim/src/main/vim/syntax/clojure.vim     syntax/clojure/slimv-syntax-clojure.vim

@@ -32,6 +32,8 @@ let folded_forms = [
             \ 'deftest',
             \ 'defroutes',
             \ 'defentity',
+            \ 'defaspect',
+            \ 'add-aspect',
             \ 'defdb',
             \ 'defproject',
             \ 'defsynth',
